@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>finder food — prototype</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<style>
+:root {
+  --forest: #464e47;
+  --forest-2: #2f352f;
+  --ice: #b5f8fe;
+  --ember: #ff4a1c;
+  --amber: #f6ae2d;
+  --sage: #e8ede8;
+  --paper: #f4f6f3;
+  --ink: #1a1f1a;
+  --muted: #7a847a;
+  --line: rgba(70,78,71,0.14);
+}
+html, body { margin:0; padding:0; height:100%; background:#cfd5cf; font-family: 'Geist', system-ui, sans-serif; color: var(--ink); }
+body {
+  background:
+    radial-gradient(1200px 600px at 50% -10%, #e8ede8 0%, #cfd5cf 60%, #b9c1b9 100%);
+  min-height: 100vh;
+  display:flex; align-items:center; justify-content:center;
+  padding: 32px 16px;
+}
+* { box-sizing: border-box; }
+button { font-family: inherit; cursor: pointer; }
+.serif-i { font-family: 'Instrument Serif', serif; font-style: italic; font-weight: 400; }
+.mono { font-family: 'Geist Mono', ui-monospace, monospace; font-feature-settings: 'tnum' 1; }
+::-webkit-scrollbar { width: 0; height: 0; }
+.scroll { scrollbar-width: none; }
+/* prevent iOS rubber-band white bg */
+input, textarea { font-family: inherit; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="android-frame.jsx"></script>
+<script type="text/babel" src="ui.jsx"></script>
+<script type="text/babel" src="screens/onboarding.jsx"></script>
+<script type="text/babel" src="screens/dashboard.jsx"></script>
+<script type="text/babel" src="screens/meal-entry.jsx"></script>
+<script type="text/babel" src="screens/progress.jsx"></script>
+<script type="text/babel" src="app.jsx"></script>
+
+</body>
+</html>
