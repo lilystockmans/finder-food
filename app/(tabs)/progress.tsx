@@ -3,17 +3,17 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
+  TextInput,
   Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Line, Path, Circle, Rect, Text as SvgText } from 'react-native-svg';
 import { useFocusEffect } from 'expo-router';
 import { Card } from '../../components/Card';
 import { Pills } from '../../components/Pills';
 import { BottomSheet } from '../../components/BottomSheet';
-import { NumberScrubber } from '../../components/NumberScrubber';
 import { Btn } from '../../components/Btn';
 import { Icon } from '../../components/Icon';
 import { Colors, Typography, Spacing } from '../../constants/tokens';
@@ -24,7 +24,7 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 const CHART_WIDTH = SCREEN_WIDTH - Spacing.xl * 2 - 36; // card padding
 const CHART_HEIGHT = 140;
 
-type Range = '7 days' | '30 days';
+type Range = '7 days' | '30 days' | '90 days';
 
 function dateRange(days: number): string[] {
   const result: string[] = [];
@@ -41,15 +41,16 @@ export default function ProgressTab() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [logWeightSheet, setLogWeightSheet] = useState(false);
   const [weightDraft, setWeightDraft] = useState(70);
+  const [weightInput, setWeightInput] = useState('');
   const [chartView, setChartView] = useState<'weight' | 'intake'>('weight');
 
   useFocusEffect(useCallback(() => {
     const p = loadProfile();
     setProfile(p);
-    if (p) setWeightDraft(p.weightKg);
+    if (p) { setWeightDraft(p.weightKg); setWeightInput(String(p.weightKg)); }
   }, []));
 
-  const days = range === '7 days' ? 7 : 30;
+  const days = range === '7 days' ? 7 : range === '30 days' ? 30 : 90;
   const dates = dateRange(days);
 
   // Build daily intake data
@@ -93,7 +94,7 @@ export default function ProgressTab() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.screenTitle}>Progress</Text>
 
-        <Pills items={['7 days', '30 days']} value={range} onChange={(v) => setRange(v as Range)} />
+        <Pills items={['7 days', '30 days', '90 days']} value={range} onChange={(v) => setRange(v as Range)} />
 
         {/* Summary cards */}
         <View style={styles.summaryRow}>
@@ -202,23 +203,30 @@ export default function ProgressTab() {
       {/* Log weight sheet */}
       <BottomSheet visible={logWeightSheet} onClose={() => setLogWeightSheet(false)}>
         <Text style={styles.sheetTitle}>Log weight</Text>
-        <NumberScrubber
-          value={weightDraft}
-          onChange={setWeightDraft}
-          min={30}
-          max={300}
-          step={0.1}
-          decimals={1}
-          suffix={weightUnit}
-        />
+        <View style={styles.weightInputRow}>
+          <TextInput
+            style={styles.weightInput}
+            value={weightInput}
+            onChangeText={(v) => { setWeightInput(v); const n = parseFloat(v); if (!isNaN(n)) setWeightDraft(n); }}
+            keyboardType="decimal-pad"
+            autoFocus
+            selectTextOnFocus
+            placeholder={String(weightDraft)}
+            placeholderTextColor={Colors.muted}
+          />
+          <Text style={styles.weightUnit}>{weightUnit}</Text>
+        </View>
         <Btn
           label="Save"
           kind="primary"
           full
           onPress={() => {
-            appendWeightEntry(weightDraft);
-            const p = loadProfile();
-            setProfile(p);
+            const val = parseFloat(weightInput);
+            if (!isNaN(val) && val > 0) {
+              appendWeightEntry(val);
+              const p = loadProfile();
+              setProfile(p);
+            }
             setLogWeightSheet(false);
           }}
           style={{ marginTop: 24 }}
@@ -365,4 +373,10 @@ const styles = StyleSheet.create({
   projText: { fontFamily: Typography.geist, fontSize: 15, color: Colors.forest, lineHeight: 22 },
   projAccent: { fontFamily: Typography.instrumentSerif, fontStyle: 'italic', fontSize: 17 },
   sheetTitle: { fontFamily: Typography.geist, fontSize: 20, fontWeight: '500', color: Colors.forest, marginBottom: 24 },
+  weightInputRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  weightInput: {
+    fontFamily: Typography.geistMono, fontSize: 48, fontWeight: '500', color: Colors.forest,
+    borderBottomWidth: 2, borderColor: Colors.ember, textAlign: 'center', paddingVertical: 4, minWidth: 120,
+  },
+  weightUnit: { fontFamily: Typography.geistMono, fontSize: 20, color: Colors.muted, alignSelf: 'flex-end', paddingBottom: 8 },
 });

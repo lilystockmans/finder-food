@@ -4,10 +4,10 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { BottomSheet } from '../../components/BottomSheet';
 import { NumberScrubber } from '../../components/NumberScrubber';
@@ -127,18 +127,12 @@ export default function ProfileTab() {
       </ScrollView>
 
       {/* Daily target sheet */}
-      <BottomSheet visible={sheet === 'target'} onClose={() => setSheet(null)}>
-        <Text style={sheetStyles.title}>Daily target</Text>
-        <NumberScrubber
-          value={profile.kcalTarget}
-          onChange={(v) => save({ kcalTarget: v })}
-          min={800}
-          max={5000}
-          step={50}
-          suffix="kcal"
-        />
-        <Btn label="Save" kind="primary" full onPress={() => setSheet(null)} style={{ marginTop: 24 }} />
-      </BottomSheet>
+      <TargetSheet
+        visible={sheet === 'target'}
+        initial={profile.kcalTarget}
+        onClose={() => setSheet(null)}
+        onSave={(v) => save({ kcalTarget: v })}
+      />
 
       {/* Macros sheet */}
       <BottomSheet visible={sheet === 'macros'} onClose={() => setSheet(null)}>
@@ -207,6 +201,20 @@ export default function ProfileTab() {
         </View>
       </BottomSheet>
     </SafeAreaView>
+  );
+}
+
+function TargetSheet({ visible, initial, onClose, onSave }: {
+  visible: boolean; initial: number; onClose: () => void; onSave: (v: number) => void;
+}) {
+  const [draft, setDraft] = React.useState(initial);
+  React.useEffect(() => { if (visible) setDraft(initial); }, [visible, initial]);
+  return (
+    <BottomSheet visible={visible} onClose={onClose}>
+      <Text style={sheetStyles.title}>Daily target</Text>
+      <NumberScrubber value={draft} onChange={setDraft} min={800} max={5000} step={50} suffix="kcal" />
+      <Btn label="Save" kind="primary" full onPress={() => onSave(draft)} style={{ marginTop: 24 }} />
+    </BottomSheet>
   );
 }
 
