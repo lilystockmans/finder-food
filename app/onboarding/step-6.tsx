@@ -1,10 +1,10 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
+import Slider from '@react-native-community/slider';
 import { router } from 'expo-router';
 import { OnboardingShell } from '../../components/OnboardingShell';
-import { NumberScrubber } from '../../components/NumberScrubber';
 import { useOnboarding } from '../../store/onboarding';
-import { Colors, Typography, Radius, Spacing } from '../../constants/tokens';
+import { Colors, Typography, Radius } from '../../constants/tokens';
 import { lbsToKg, kgToLbs } from '../../lib/nutrition';
 import type { GoalType } from '../../lib/nutrition';
 
@@ -18,8 +18,25 @@ const RATES = [0.25, 0.5, 0.75, 1.0];
 
 export default function Step6() {
   const { units, goalType, goalWeightKg, ratePerWeek, set } = useOnboarding();
-  const displayGoal = units === 'imperial' ? kgToLbs(goalWeightKg) : goalWeightKg;
+  const displayGoal = Math.round(units === 'imperial' ? kgToLbs(goalWeightKg) : goalWeightKg);
   const showGoalFields = goalType !== 'maintain';
+  const suffix = units === 'imperial' ? 'lbs' : 'kg';
+  const min = units === 'imperial' ? 66 : 30;
+  const max = units === 'imperial' ? 440 : 200;
+
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(String(displayGoal));
+
+  const setGoal = (rounded: number) => {
+    set({ goalWeightKg: units === 'imperial' ? lbsToKg(rounded) : rounded });
+    setDraft(String(rounded));
+  };
+
+  const commit = (raw: string) => {
+    const n = Math.round(parseFloat(raw));
+    if (!isNaN(n) && n >= min && n <= max) setGoal(n);
+    setEditing(false);
+  };
 
   return (
     <OnboardingShell
@@ -48,18 +65,45 @@ export default function Step6() {
       {showGoalFields && (
         <View style={styles.extras}>
           <Text style={styles.sectionLabel}>Goal weight</Text>
-          <NumberScrubber
-            value={displayGoal}
-            onChange={(v) => set({ goalWeightKg: units === 'imperial' ? lbsToKg(v) : v })}
-            min={30}
-            max={300}
-            step={0.1}
-            decimals={1}
-            suffix={units === 'imperial' ? 'lbs' : 'kg'}
-          />
+
+          <View style={styles.sliderBlock}>
+            {editing ? (
+              <TextInput
+                style={styles.goalValue}
+                value={draft}
+                onChangeText={setDraft}
+                onBlur={() => commit(draft)}
+                onSubmitEditing={() => commit(draft)}
+                keyboardType="number-pad"
+                autoFocus
+                selectTextOnFocus
+              />
+            ) : (
+              <TouchableOpacity onPress={() => { setDraft(String(displayGoal)); setEditing(true); }}>
+                <Text style={styles.goalValue}>
+                  {displayGoal} <Text style={styles.goalSuffix}>{suffix}</Text>
+                </Text>
+              </TouchableOpacity>
+            )}
+            <Slider
+              style={styles.slider}
+              minimumValue={min}
+              maximumValue={max}
+              step={1}
+              value={displayGoal}
+              onValueChange={(v) => setGoal(Math.round(v))}
+              minimumTrackTintColor={Colors.forest}
+              maximumTrackTintColor={Colors.line}
+              thumbTintColor={Colors.forest}
+            />
+            <View style={styles.sliderLabels}>
+              <Text style={styles.sliderLabel}>{min} {suffix}</Text>
+              <Text style={styles.sliderLabel}>{max} {suffix}</Text>
+            </View>
+          </View>
 
           <Text style={[styles.sectionLabel, { marginTop: 24 }]}>
-            Rate: {ratePerWeek} {units === 'imperial' ? 'lbs' : 'kg'} / week
+            Rate: {ratePerWeek} {suffix} / week
           </Text>
           <View style={styles.rateChips}>
             {RATES.map((r) => (
@@ -113,11 +157,19 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1.4,
   },
-  rateChips: {
-    flexDirection: 'row',
-    gap: 8,
-    flexWrap: 'wrap',
+  sliderBlock: { alignItems: 'center', width: '100%', gap: 4 },
+  goalValue: {
+    fontFamily: Typography.geistMono,
+    fontSize: 48,
+    fontWeight: '500',
+    color: Colors.forest,
+    textAlign: 'center',
   },
+  goalSuffix: { fontFamily: Typography.geistMono, fontSize: 20, color: Colors.muted },
+  slider: { width: '100%', height: 40 },
+  sliderLabels: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', paddingHorizontal: 4 },
+  sliderLabel: { fontFamily: Typography.geistMono, fontSize: 12, color: Colors.muted },
+  rateChips: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   chip: {
     paddingHorizontal: 18,
     paddingVertical: 10,
@@ -126,14 +178,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.line,
   },
-  chipActive: {
-    backgroundColor: Colors.forest,
-    borderColor: Colors.forest,
-  },
-  chipLabel: {
-    fontFamily: Typography.geistMono,
-    fontSize: 14,
-    color: Colors.forest,
-  },
+  chipActive: { backgroundColor: Colors.forest, borderColor: Colors.forest },
+  chipLabel: { fontFamily: Typography.geistMono, fontSize: 14, color: Colors.forest },
   chipActiveLabel: { color: Colors.white },
 });

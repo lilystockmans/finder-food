@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
@@ -10,7 +11,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { BottomSheet } from '../../components/BottomSheet';
-import { NumberScrubber } from '../../components/NumberScrubber';
 import { Pills } from '../../components/Pills';
 import { Btn } from '../../components/Btn';
 import { Icon } from '../../components/Icon';
@@ -111,7 +111,7 @@ export default function ProfileTab() {
           />
           <SettingsRow
             label="Goal weight"
-            value={`${displayGoal.toFixed(1)} ${weightUnit}`}
+            value={`${Math.round(displayGoal)} ${weightUnit}`}
             onPress={() => setSheet('goal')}
           />
           <SettingsRow
@@ -167,26 +167,21 @@ export default function ProfileTab() {
             setProfile({ ...profile, ...updates });
           }}
         />
-        <Btn label="Save" kind="primary" full onPress={() => save({ macroP: profile.macroP, macroC: profile.macroC, macroF: profile.macroF })} style={{ marginTop: 24 }} />
+        <FiberRow
+          value={profile.fiberTargetG}
+          onChange={(v) => setProfile({ ...profile, fiberTargetG: Math.min(60, Math.max(10, v)) })}
+        />
+        <Btn label="Save" kind="primary" full onPress={() => save({ macroP: profile.macroP, macroC: profile.macroC, macroF: profile.macroF, fiberTargetG: profile.fiberTargetG })} style={{ marginTop: 24 }} />
       </BottomSheet>
 
       {/* Goal weight sheet */}
-      <BottomSheet visible={sheet === 'goal'} onClose={() => setSheet(null)}>
-        <Text style={sheetStyles.title}>Goal weight</Text>
-        <NumberScrubber
-          value={displayGoal}
-          onChange={(v) => {
-            const kg = profile.units === 'imperial' ? lbsToKg(v) : v;
-            setProfile({ ...profile, goalWeightKg: kg });
-          }}
-          min={30}
-          max={300}
-          step={0.1}
-          decimals={1}
-          suffix={weightUnit}
-        />
-        <Btn label="Save" kind="primary" full onPress={() => save({ goalWeightKg: profile.goalWeightKg })} style={{ marginTop: 24 }} />
-      </BottomSheet>
+      <GoalSheet
+        visible={sheet === 'goal'}
+        initial={Math.round(displayGoal)}
+        unit={weightUnit}
+        onClose={() => setSheet(null)}
+        onSave={(v) => save({ goalWeightKg: profile.units === 'imperial' ? lbsToKg(v) : v })}
+      />
 
       {/* Settings sheet */}
       <BottomSheet visible={sheet === 'settings'} onClose={() => setSheet(null)}>
@@ -207,14 +202,75 @@ export default function ProfileTab() {
 function TargetSheet({ visible, initial, onClose, onSave }: {
   visible: boolean; initial: number; onClose: () => void; onSave: (v: number) => void;
 }) {
-  const [draft, setDraft] = React.useState(initial);
-  React.useEffect(() => { if (visible) setDraft(initial); }, [visible, initial]);
+  const [input, setInput] = React.useState(String(initial));
+  React.useEffect(() => { if (visible) setInput(String(initial)); }, [visible, initial]);
   return (
     <BottomSheet visible={visible} onClose={onClose}>
       <Text style={sheetStyles.title}>Daily target</Text>
-      <NumberScrubber value={draft} onChange={setDraft} min={800} max={5000} step={50} suffix="kcal" />
-      <Btn label="Save" kind="primary" full onPress={() => onSave(draft)} style={{ marginTop: 24 }} />
+      <View style={sheetStyles.inputRow}>
+        <TextInput
+          style={sheetStyles.bigInput}
+          value={input}
+          onChangeText={setInput}
+          keyboardType="number-pad"
+          autoFocus
+          selectTextOnFocus
+          placeholder={String(initial)}
+          placeholderTextColor={Colors.muted}
+        />
+        <Text style={sheetStyles.inputUnit}>kcal</Text>
+      </View>
+      <Btn label="Save" kind="primary" full onPress={() => { const n = parseInt(input); if (!isNaN(n) && n >= 800 && n <= 5000) onSave(n); }} style={{ marginTop: 24 }} />
     </BottomSheet>
+  );
+}
+
+function GoalSheet({ visible, initial, unit, onClose, onSave }: {
+  visible: boolean; initial: number; unit: string; onClose: () => void; onSave: (v: number) => void;
+}) {
+  const [input, setInput] = React.useState(String(initial));
+  React.useEffect(() => { if (visible) setInput(String(initial)); }, [visible, initial]);
+  return (
+    <BottomSheet visible={visible} onClose={onClose}>
+      <Text style={sheetStyles.title}>Goal weight</Text>
+      <View style={sheetStyles.inputRow}>
+        <TextInput
+          style={sheetStyles.bigInput}
+          value={input}
+          onChangeText={setInput}
+          keyboardType="number-pad"
+          autoFocus
+          selectTextOnFocus
+          placeholder={String(initial)}
+          placeholderTextColor={Colors.muted}
+        />
+        <Text style={sheetStyles.inputUnit}>{unit}</Text>
+      </View>
+      <Btn label="Save" kind="primary" full onPress={() => { const n = Math.round(parseInt(input)); if (!isNaN(n) && n >= 30 && n <= 440) onSave(n); }} style={{ marginTop: 24 }} />
+    </BottomSheet>
+  );
+}
+
+function FiberRow({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <View style={macroRow.container}>
+      <View style={macroRow.header}>
+        <View style={[macroRow.dot, { backgroundColor: Colors.macroFiber }]} />
+        <Text style={macroRow.label}>Fiber</Text>
+        <Text style={macroRow.grams}>{value}g</Text>
+      </View>
+      <View style={macroRow.track}>
+        <View style={[macroRow.fill, { width: `${Math.round((value / 60) * 100)}%`, backgroundColor: Colors.macroFiber }]} />
+      </View>
+      <View style={macroRow.btns}>
+        <TouchableOpacity onPress={() => onChange(value - 5)} style={macroRow.btn}>
+          <Text style={macroRow.btnText}>−5g</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => onChange(value + 5)} style={macroRow.btn}>
+          <Text style={macroRow.btnText}>+5g</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
@@ -353,6 +409,19 @@ const sheetStyles = StyleSheet.create({
     fontSize: 15,
     color: Colors.forest,
   },
+  inputRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  bigInput: {
+    fontFamily: Typography.geistMono,
+    fontSize: 48,
+    fontWeight: '500',
+    color: Colors.forest,
+    borderBottomWidth: 2,
+    borderColor: Colors.ember,
+    textAlign: 'center',
+    paddingVertical: 4,
+    minWidth: 120,
+  },
+  inputUnit: { fontFamily: Typography.geistMono, fontSize: 20, color: Colors.muted, alignSelf: 'flex-end', paddingBottom: 8 },
 });
 
 const macroRow = StyleSheet.create({

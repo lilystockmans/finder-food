@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TextInput } from 'react-native';
 import { router } from 'expo-router';
 import { OnboardingShell } from '../../components/OnboardingShell';
-import { NumberScrubber } from '../../components/NumberScrubber';
 import { useOnboarding } from '../../store/onboarding';
 import { Colors, Typography, Spacing } from '../../constants/tokens';
 import {
@@ -91,19 +90,28 @@ export default function Step8() {
         <MacroSlider label="Protein" value={ob.macroP} onChange={(v) => rebalance('P', v)} color={Colors.macroProtein} grams={proteinG} />
         <MacroSlider label="Carbs" value={ob.macroC} onChange={(v) => rebalance('C', v)} color={Colors.macroCarbs} grams={carbsG} />
         <MacroSlider label="Fat" value={ob.macroF} onChange={(v) => rebalance('F', v)} color={Colors.macroFat} grams={fatG} />
-      </View>
-
-      <View style={styles.fiber}>
-        <Text style={styles.fiberLabel}>Fiber target</Text>
-        <NumberScrubber
-          value={ob.fiberTargetG}
-          onChange={(v) => ob.set({ fiberTargetG: v })}
-          min={10}
-          max={60}
-          suffix="g"
-        />
+        <FiberRow value={ob.fiberTargetG} onChange={(v) => ob.set({ fiberTargetG: Math.min(60, Math.max(10, v)) })} />
       </View>
     </OnboardingShell>
+  );
+}
+
+function FiberRow({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <View style={macro.row}>
+      <View style={macro.header}>
+        <View style={[macro.dot, { backgroundColor: TokenColors.macroFiber }]} />
+        <Text style={macro.label}>Fiber</Text>
+        <Text style={macro.grams}>{value}g</Text>
+      </View>
+      <View style={macro.track}>
+        <View style={[macro.fill, { width: `${Math.round((value / 60) * 100)}%`, backgroundColor: TokenColors.macroFiber }]} />
+      </View>
+      <View style={macro.btns}>
+        <Text style={macro.adj} onPress={() => onChange(value - 5)}>−5g</Text>
+        <Text style={macro.adj} onPress={() => onChange(value + 5)}>+5g</Text>
+      </View>
+    </View>
   );
 }
 
@@ -181,15 +189,6 @@ const styles = StyleSheet.create({
     backgroundColor: TokenColors.paper,
   },
   macros: { gap: 16, marginTop: 8 },
-  fiber: { marginTop: 24, gap: 8 },
-  fiberLabel: {
-    fontFamily: Typography.geist,
-    fontSize: 11,
-    fontWeight: '600',
-    color: TokenColors.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 1.4,
-  },
 });
 
 const macro = StyleSheet.create({
