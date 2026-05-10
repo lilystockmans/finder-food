@@ -26,7 +26,6 @@
       "package": "com.finderfood.app",
       "permissions": ["INTERNET", "CAMERA", "RECORD_AUDIO"]
     },
-    "newArchEnabled": false,
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
