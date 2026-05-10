@@ -3,15 +3,16 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   TextInput,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { Card } from '../../components/Card';
 import { BottomSheet } from '../../components/BottomSheet';
+import { Pills } from '../../components/Pills';
 import { Btn } from '../../components/Btn';
 import { Icon } from '../../components/Icon';
 import { Colors, Typography, Spacing, Radius } from '../../constants/tokens';
@@ -27,6 +28,8 @@ export default function SavedTab() {
   const [selected, setSelected] = useState<SavedMeal | null>(null);
   const [multiplier, setMultiplier] = useState(1);
   const [customMult, setCustomMult] = useState('1');
+  const [portionMode, setPortionMode] = useState<'serving' | 'grams'>('serving');
+  const [gramsInput, setGramsInput] = useState('');
   const [renaming, setRenaming] = useState<SavedMeal | null>(null);
   const [nameDraft, setNameDraft] = useState('');
   const { refreshMeals, entrySlot } = useAppStore();
@@ -35,9 +38,14 @@ export default function SavedTab() {
     setMeals(getAllSavedMeals());
   }, []));
 
+  const baseGrams = (meal: SavedMeal) =>
+    meal.ingredients.reduce((s, i) => s + i.grams, 0) || 100;
+
   const logSelected = () => {
     if (!selected) return;
-    const m = parseFloat(customMult) || multiplier;
+    const m = portionMode === 'grams'
+      ? (parseFloat(gramsInput) || baseGrams(selected)) / baseGrams(selected)
+      : parseFloat(customMult) || multiplier;
     const ingredients = selected.ingredients.map((ing) => {
       const per100 = ing.grams > 0 ? 100 / ing.grams : 1;
       const scaled = scaleNutrients({
@@ -103,7 +111,10 @@ export default function SavedTab() {
         {meals.map((meal) => (
           <TouchableOpacity
             key={meal.id}
-            onPress={() => { setSelected(meal); setMultiplier(1); setCustomMult('1'); }}
+            onPress={() => {
+            setSelected(meal); setMultiplier(1); setCustomMult('1');
+            setPortionMode('serving'); setGramsInput(String(baseGrams(meal)));
+          }}
             activeOpacity={0.85}
           >
             <Card pad={16} style={styles.mealCard}>
@@ -137,30 +148,52 @@ export default function SavedTab() {
             <Text style={styles.sheetTitle}>{selected.name}</Text>
             <Text style={styles.sheetMeta}>{Math.round(selected.totalKcal)} kcal · {selected.ingredients.length} ingredients</Text>
 
-            <Text style={styles.sheetLabel}>Portion</Text>
-            <View style={styles.multChips}>
-              {MULTIPLIERS.map((m) => (
-                <TouchableOpacity
-                  key={m}
-                  onPress={() => { setMultiplier(m); setCustomMult(String(m)); }}
-                  style={[styles.chip, multiplier === m && styles.chipActive]}
-                >
-                  <Text style={[styles.chipText, multiplier === m && styles.chipActiveText]}>{m}×</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <Pills items={['Serving', 'Grams']} value={portionMode === 'serving' ? 'Serving' : 'Grams'} onChange={(v) => setPortionMode(v === 'Grams' ? 'grams' : 'serving')} />
 
-            <TextInput
-              style={styles.multInput}
-              value={customMult}
-              onChangeText={(v) => { setCustomMult(v); setMultiplier(parseFloat(v) || 1); }}
-              keyboardType="decimal-pad"
-              placeholder="Custom multiplier"
-              placeholderTextColor={Colors.muted}
-            />
+            {portionMode === 'serving' ? (
+              <>
+                <Text style={styles.sheetLabel}>Portion</Text>
+                <View style={styles.multChips}>
+                  {MULTIPLIERS.map((m) => (
+                    <TouchableOpacity
+                      key={m}
+                      onPress={() => { setMultiplier(m); setCustomMult(String(m)); }}
+                      style={[styles.chip, multiplier === m && styles.chipActive]}
+                    >
+                      <Text style={[styles.chipText, multiplier === m && styles.chipActiveText]}>{m}×</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <TextInput
+                  style={styles.multInput}
+                  value={customMult}
+                  onChangeText={(v) => { setCustomMult(v); setMultiplier(parseFloat(v) || 1); }}
+                  keyboardType="decimal-pad"
+                  placeholder="Custom multiplier"
+                  placeholderTextColor={Colors.muted}
+                />
+              </>
+            ) : (
+              <>
+                <Text style={styles.sheetLabel}>Total grams</Text>
+                <TextInput
+                  style={styles.multInput}
+                  value={gramsInput}
+                  onChangeText={setGramsInput}
+                  keyboardType="decimal-pad"
+                  placeholder={String(baseGrams(selected))}
+                  placeholderTextColor={Colors.muted}
+                  autoFocus
+                  selectTextOnFocus
+                />
+              </>
+            )}
 
             <Text style={styles.scaledKcal}>
-              {Math.round(selected.totalKcal * (parseFloat(customMult) || 1))} kcal
+              {portionMode === 'serving'
+                ? Math.round(selected.totalKcal * (parseFloat(customMult) || 1))
+                : Math.round(selected.totalKcal * ((parseFloat(gramsInput) || baseGrams(selected)) / baseGrams(selected)))
+              } kcal
             </Text>
 
             <Btn label="Add to log" kind="primary" full onPress={logSelected} style={{ marginTop: 8 }} />

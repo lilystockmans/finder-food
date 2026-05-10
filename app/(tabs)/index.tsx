@@ -5,10 +5,11 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
+  TextInput,
   RefreshControl,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect, router } from 'expo-router';
 import { CalorieRing } from '../../components/CalorieRing';
 import { MacroBar } from '../../components/MacroBar';
 import { Card } from '../../components/Card';
@@ -16,8 +17,9 @@ import { BottomSheet } from '../../components/BottomSheet';
 import { Btn } from '../../components/Btn';
 import { Icon } from '../../components/Icon';
 import { Colors, Typography, Spacing } from '../../constants/tokens';
-import { getMealsForDate, deleteMeal, updateMealSlot, type MealEntry } from '../../lib/db';
+import { getMealsForDate, deleteMeal, updateMealSlot, updateMealServing, type MealEntry, type Ingredient } from '../../lib/db';
 import { loadProfile, type Profile } from '../../lib/profile';
+import { insertSavedMeal } from '../../lib/savedMeals';
 import { calcMacroGrams } from '../../lib/nutrition';
 import { useAppStore } from '../../store';
 
@@ -129,7 +131,7 @@ export default function Dashboard() {
                 {slotMeals.length === 0 ? (
                   isToday && (
                     <TouchableOpacity
-                      onPress={() => openEntry(slot)}
+                      onPress={() => { openEntry(slot); router.push('/meal-entry'); }}
                       style={styles.emptySlot}
                     >
                       <Icon name="plus-s" size={14} color={Colors.muted} />
@@ -186,6 +188,15 @@ export default function Dashboard() {
               refreshMeals();
               setEditMeal(null);
             }}
+            onUpdate={(ingredients) => {
+              const totals = ingredients.reduce(
+                (acc, i) => ({ totalKcal: acc.totalKcal + i.kcal, totalProteinG: acc.totalProteinG + i.proteinG, totalCarbsG: acc.totalCarbsG + i.carbsG, totalFatG: acc.totalFatG + i.fatG, totalFiberG: acc.totalFiberG + i.fiberG }),
+                { totalKcal: 0, totalProteinG: 0, totalCarbsG: 0, totalFatG: 0, totalFiberG: 0 }
+              );
+              updateMealServing(editMeal.id, ingredients, totals);
+              refreshMeals();
+              setEditMeal(null);
+            }}
           />
         )}
       </BottomSheet>
@@ -201,19 +212,68 @@ function Chip({ label, color }: { label: string; color: string }) {
   );
 }
 
-function MealEditSheet({ meal, onClose, onDelete, onMove }: {
+function MealEditSheet({ meal, onClose, onDelete, onMove, onUpdate }: {
   meal: MealEntry;
   onClose: () => void;
   onDelete: () => void;
   onMove: (slot: Slot) => void;
+  onUpdate: (ingredients: Ingredient[]) => void;
 }) {
-  const [movingTo, setMovingTo] = useState(false);
+  const [view, setView] = useState<'actions' | 'move' | 'edit'>('actions');
+  const [draftIngredients, setDraftIngredients] = useState<Ingredient[]>([]);
+  const [savedConfirm, setSavedConfirm] = useState(false);
+
+  const startEdit = () => {
+    setDraftIngredients(meal.ingredients.map(i => ({ ...i })));
+    setView('edit');
+  };
+
+  const saveEdit = () => {
+    onUpdate(draftIngredients);
+    setView('actions');
+  };
+
+  const saveToLibrary = () => {
+    insertSavedMeal({
+      name: meal.mealName || meal.ingredients[0]?.name || 'Saved meal',
+      ingredients: meal.ingredients,
+      totalKcal: meal.totalKcal,
+      totalProteinG: meal.totalProteinG,
+      totalCarbsG: meal.totalCarbsG,
+      totalFatG: meal.totalFatG,
+      totalFiberG: meal.totalFiberG,
+    });
+    setSavedConfirm(true);
+    setTimeout(() => { setSavedConfirm(false); onClose(); }, 1200);
+  };
+
+  const updateIngredientGrams = (index: number, grams: number) => {
+    setDraftIngredients(prev => prev.map((ing, i) => {
+      if (i !== index) return ing;
+      const per100 = ing.grams > 0 ? 100 / ing.grams : 1;
+      return {
+        ...ing, grams,
+        kcal: Math.round(ing.kcal * per100 * grams / 100),
+        proteinG: ing.proteinG * per100 * grams / 100,
+        carbsG: ing.carbsG * per100 * grams / 100,
+        fatG: ing.fatG * per100 * grams / 100,
+        fiberG: ing.fiberG * per100 * grams / 100,
+      };
+    }));
+  };
+
   return (
     <View style={sheet.container}>
       <Text style={sheet.title}>{meal.mealName || meal.ingredients[0]?.name || 'Meal'}</Text>
       <Text style={sheet.sub}>{Math.round(meal.totalKcal)} kcal · {meal.slot}</Text>
 
-      {movingTo ? (
+      {savedConfirm && (
+        <View style={sheet.confirm}>
+          <Text style={sheet.confirmText}>Saved to library ✓</Text>
+        </View>
+      )}
+
+      {view === 'move' && (
         <View style={sheet.slots}>
           {SLOTS.map((s) => (
             <TouchableOpacity key={s} onPress={() => onMove(s)} style={sheet.slotBtn}>
@@ -221,11 +281,41 @@ function MealEditSheet({ meal, onClose, onDelete, onMove }: {
             </TouchableOpacity>
           ))}
         </View>
-      ) : (
+      )}
+
+      {view === 'edit' && (
+        <View style={sheet.editSection}>
+          {draftIngredients.map((ing, i) => (
+            <EditIngredientRow
+              key={i}
+              ingredient={ing}
+              onGramsChange={(g) => updateIngredientGrams(i, g)}
+            />
+          ))}
+          <TouchableOpacity style={[sheet.action, { marginTop: 8 }]} onPress={saveEdit}>
+            <Icon name="check" size={18} color={Colors.forest} />
+            <Text style={sheet.actionText}>Save changes</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={sheet.action} onPress={() => setView('actions')}>
+            <Icon name="x" size={18} color={Colors.muted} />
+            <Text style={[sheet.actionText, { color: Colors.muted }]}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {view === 'actions' && !savedConfirm && (
         <View style={sheet.actions}>
-          <TouchableOpacity style={sheet.action} onPress={() => setMovingTo(true)}>
+          <TouchableOpacity style={sheet.action} onPress={startEdit}>
+            <Icon name="edit" size={18} color={Colors.forest} />
+            <Text style={sheet.actionText}>Edit serving size</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={sheet.action} onPress={() => setView('move')}>
             <Icon name="move" size={18} color={Colors.forest} />
             <Text style={sheet.actionText}>Move to…</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={sheet.action} onPress={saveToLibrary}>
+            <Icon name="bookmark" size={18} color={Colors.forest} />
+            <Text style={sheet.actionText}>Save to library</Text>
           </TouchableOpacity>
           <TouchableOpacity style={sheet.action} onPress={onDelete}>
             <Icon name="trash" size={18} color={Colors.ember} />
@@ -233,6 +323,38 @@ function MealEditSheet({ meal, onClose, onDelete, onMove }: {
           </TouchableOpacity>
         </View>
       )}
+    </View>
+  );
+}
+
+function EditIngredientRow({ ingredient, onGramsChange }: {
+  ingredient: Ingredient; onGramsChange: (g: number) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(String(ingredient.grams));
+
+  useEffect(() => { setDraft(String(ingredient.grams)); }, [ingredient.grams]);
+
+  return (
+    <View style={sheet.editRow}>
+      <Text style={sheet.editName} numberOfLines={1}>{ingredient.name}</Text>
+      {editing ? (
+        <TextInput
+          style={sheet.editGrams}
+          value={draft}
+          onChangeText={setDraft}
+          onBlur={() => { onGramsChange(parseInt(draft) || ingredient.grams); setEditing(false); }}
+          onSubmitEditing={() => { onGramsChange(parseInt(draft) || ingredient.grams); setEditing(false); }}
+          keyboardType="number-pad"
+          autoFocus
+          selectTextOnFocus
+        />
+      ) : (
+        <TouchableOpacity onPress={() => { setDraft(String(ingredient.grams)); setEditing(true); }}>
+          <Text style={sheet.editGrams}>{ingredient.grams}g</Text>
+        </TouchableOpacity>
+      )}
+      <Text style={sheet.editKcal}>{ingredient.kcal} kcal</Text>
     </View>
   );
 }
@@ -411,5 +533,48 @@ const sheet = StyleSheet.create({
     fontFamily: Typography.geist,
     fontSize: 15,
     color: Colors.forest,
+  },
+  confirm: {
+    backgroundColor: Colors.forest + '18',
+    borderRadius: 10,
+    padding: 12,
+    alignItems: 'center',
+  },
+  confirmText: {
+    fontFamily: Typography.geist,
+    fontSize: 14,
+    color: Colors.forest,
+  },
+  editSection: { gap: 4 },
+  editRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderColor: Colors.line,
+    gap: 8,
+  },
+  editName: {
+    fontFamily: Typography.geist,
+    fontSize: 14,
+    color: Colors.forest,
+    flex: 1,
+  },
+  editGrams: {
+    fontFamily: Typography.geistMono,
+    fontSize: 14,
+    color: Colors.forest,
+    borderBottomWidth: 1,
+    borderColor: Colors.ember,
+    minWidth: 50,
+    textAlign: 'center',
+    paddingVertical: 2,
+  },
+  editKcal: {
+    fontFamily: Typography.geistMono,
+    fontSize: 12,
+    color: Colors.muted,
+    minWidth: 58,
+    textAlign: 'right',
   },
 });

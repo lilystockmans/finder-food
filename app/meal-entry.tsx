@@ -6,12 +6,12 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  SafeAreaView,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Switch,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Icon } from '../components/Icon';
 import { Btn } from '../components/Btn';
@@ -36,7 +36,7 @@ import {
   type Ingredient,
 } from '../lib/db';
 import { analysePhoto, getGeminiKey, type GeminiIngredient } from '../lib/gemini';
-import { insertSavedMeal } from '../lib/savedMeals';
+import { insertSavedMeal, getAllSavedMeals, type SavedMeal } from '../lib/savedMeals';
 
 type Slot = 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack';
 type Method = 'photo' | 'barcode' | 'manual' | 'saved';
@@ -71,7 +71,22 @@ export default function MealEntry() {
   // Save-as-meal toggle
   const [saveAsMeal, setSaveAsMeal] = useState(false);
 
+  // Saved meals flow
+  const [savedMeals, setSavedMeals] = useState<SavedMeal[]>([]);
+  const [selectedSaved, setSelectedSaved] = useState<SavedMeal | null>(null);
+  const [savedMult, setSavedMult] = useState(1);
+  const [savedMultInput, setSavedMultInput] = useState('1');
+
   useEffect(() => { setSlot(entrySlot); }, [entrySlot]);
+
+  useEffect(() => {
+    if (method === 'saved') {
+      setSavedMeals(getAllSavedMeals());
+      setSelectedSaved(null);
+      setSavedMult(1);
+      setSavedMultInput('1');
+    }
+  }, [method]);
 
   // Load recent history
   useEffect(() => {
@@ -208,6 +223,37 @@ export default function MealEntry() {
     router.back();
   };
 
+  const logSavedMeal = (meal: SavedMeal, mult: number) => {
+    const ingredients = meal.ingredients.map((ing) => {
+      const per100 = ing.grams > 0 ? 100 / ing.grams : 1;
+      const scaled = scaleNutrients({
+        name: ing.name, brand: '',
+        kcalPer100g: ing.kcal * per100,
+        proteinPer100g: ing.proteinG * per100,
+        carbsPer100g: ing.carbsG * per100,
+        fatPer100g: ing.fatG * per100,
+        fiberPer100g: ing.fiberG * per100,
+      }, ing.grams * mult);
+      return { ...ing, grams: Math.round(ing.grams * mult), ...scaled };
+    });
+    const totals = ingredients.reduce(
+      (acc, i) => ({ kcal: acc.kcal + i.kcal, protein: acc.protein + i.proteinG, carbs: acc.carbs + i.carbsG, fat: acc.fat + i.fatG, fiber: acc.fiber + i.fiberG }),
+      { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 }
+    );
+    insertMeal({
+      id: Date.now().toString(),
+      date: new Date().toISOString().split('T')[0],
+      timestampMs: Date.now(),
+      slot, method: 'saved',
+      mealName: meal.name,
+      ingredients,
+      totalKcal: totals.kcal, totalProteinG: totals.protein, totalCarbsG: totals.carbs, totalFatG: totals.fat, totalFiberG: totals.fiber,
+    });
+    refreshMeals();
+    closeEntry();
+    router.back();
+  };
+
   const handleBarcodeScanned = async (code: string) => {
     setBarcodeCode(code);
     setBarcodeLoading(true);
@@ -267,7 +313,7 @@ export default function MealEntry() {
           <MethodCard icon="camera" title="Photo" desc="Snap a meal · AI detects ingredients" onPress={() => setMethod('photo')} />
           <MethodCard icon="barcode" title="Barcode" desc="Scan packaged food" onPress={() => setMethod('barcode')} />
           <MethodCard icon="edit" title="Manual" desc="Type ingredients & grams" onPress={() => setMethod('manual')} />
-          <MethodCard icon="bookmark" title="Saved" desc="From your library" onPress={() => setMethod('saved')} comingSoon />
+          <MethodCard icon="bookmark" title="Saved" desc="From your library" onPress={() => setMethod('saved')} />
         </ScrollView>
       )}
 
@@ -516,13 +562,77 @@ export default function MealEntry() {
         </KeyboardAvoidingView>
       )}
 
-      {/* === SAVED (coming M3) === */}
-      {method === 'saved' && (
-        <View style={styles.comingSoon}>
-          <Icon name="bookmark" size={40} color={Colors.muted} />
-          <Text style={styles.comingSoonText}>Saved meals — coming soon</Text>
-          <Btn label="Go back" kind="ghost" onPress={() => setMethod(null)} style={{ marginTop: 16 }} />
-        </View>
+      {/* === SAVED FLOW === */}
+      {method === 'saved' && !selectedSaved && (
+        savedMeals.length === 0 ? (
+          <View style={styles.comingSoon}>
+            <Icon name="bookmark" size={40} color={Colors.muted} />
+            <Text style={styles.comingSoonText}>No saved meals yet</Text>
+            <Text style={[styles.rateLimitSub, { color: Colors.muted, fontSize: 13 }]}>Log a meal and toggle "Save as meal"</Text>
+            <Btn label="Go back" kind="ghost" onPress={() => setMethod(null)} style={{ marginTop: 16 }} />
+          </View>
+        ) : (
+          <ScrollView contentContainerStyle={styles.manualContent}>
+            <Text style={styles.sectionLabel}>YOUR LIBRARY</Text>
+            {savedMeals.map((meal) => (
+              <TouchableOpacity
+                key={meal.id}
+                onPress={() => { setSelectedSaved(meal); setSavedMult(1); setSavedMultInput('1'); }}
+                activeOpacity={0.85}
+                style={savedRow.row}
+              >
+                <View style={savedRow.info}>
+                  <Text style={savedRow.name}>{meal.name}</Text>
+                  <Text style={savedRow.meta}>{meal.ingredients.length} ingredient{meal.ingredients.length !== 1 ? 's' : ''}</Text>
+                </View>
+                <Text style={savedRow.kcal}>{Math.round(meal.totalKcal)} kcal</Text>
+                <Icon name="chev-r" size={18} color={Colors.muted} />
+              </TouchableOpacity>
+            ))}
+            <View style={{ height: 80 }} />
+          </ScrollView>
+        )
+      )}
+
+      {method === 'saved' && selectedSaved && (
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ScrollView contentContainerStyle={styles.manualContent}>
+            <TouchableOpacity onPress={() => setSelectedSaved(null)} style={savedRow.backBtn}>
+              <Icon name="chev-l" size={18} color={Colors.forest} />
+              <Text style={savedRow.backText}>Library</Text>
+            </TouchableOpacity>
+            <Text style={savedRow.mealTitle}>{selectedSaved.name}</Text>
+            <Text style={savedRow.mealMeta}>{selectedSaved.ingredients.length} ingredients · base {Math.round(selectedSaved.totalKcal)} kcal</Text>
+
+            <Text style={[styles.sectionLabel, { marginTop: 16 }]}>PORTION</Text>
+            <View style={savedRow.multChips}>
+              {[0.5, 1, 1.5, 2].map((m) => (
+                <TouchableOpacity
+                  key={m}
+                  onPress={() => { setSavedMult(m); setSavedMultInput(String(m)); }}
+                  style={[savedRow.chip, savedMult === m && savedRow.chipActive]}
+                >
+                  <Text style={[savedRow.chipText, savedMult === m && savedRow.chipActiveText]}>{m}×</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TextInput
+              style={styles.mealNameInput}
+              value={savedMultInput}
+              onChangeText={(v) => { setSavedMultInput(v); const n = parseFloat(v); if (!isNaN(n)) setSavedMult(n); }}
+              keyboardType="decimal-pad"
+              placeholder="Custom multiplier"
+              placeholderTextColor={Colors.muted}
+            />
+            <Text style={savedRow.scaledKcal}>
+              {Math.round(selectedSaved.totalKcal * (parseFloat(savedMultInput) || 1))} kcal
+            </Text>
+            <View style={{ height: 100 }} />
+          </ScrollView>
+          <View style={styles.footer}>
+            <Btn label="Add to log" kind="primary" full onPress={() => logSavedMeal(selectedSaved, parseFloat(savedMultInput) || savedMult)} />
+          </View>
+        </KeyboardAvoidingView>
       )}
     </SafeAreaView>
   );
@@ -828,4 +938,22 @@ const tc = StyleSheet.create({
   v: { fontFamily: Typography.geistMono, fontSize: 16, fontWeight: '500', color: Colors.forest },
   bold: { fontSize: 18 },
   l: { fontFamily: Typography.geist, fontSize: 11, color: Colors.muted },
+});
+
+const savedRow = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderColor: Colors.line, gap: 8 },
+  info: { flex: 1 },
+  name: { fontFamily: Typography.geist, fontSize: 15, fontWeight: '500', color: Colors.forest },
+  meta: { fontFamily: Typography.geist, fontSize: 12, color: Colors.muted, marginTop: 2 },
+  kcal: { fontFamily: Typography.geistMono, fontSize: 13, color: Colors.muted },
+  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingBottom: 12 },
+  backText: { fontFamily: Typography.geist, fontSize: 14, color: Colors.forest },
+  mealTitle: { fontFamily: Typography.geist, fontSize: 20, fontWeight: '500', color: Colors.forest },
+  mealMeta: { fontFamily: Typography.geist, fontSize: 13, color: Colors.muted, marginTop: 2 },
+  multChips: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 12 },
+  chip: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, backgroundColor: Colors.paper, borderWidth: 1, borderColor: Colors.line },
+  chipActive: { backgroundColor: Colors.forest, borderColor: Colors.forest },
+  chipText: { fontFamily: Typography.geistMono, fontSize: 14, color: Colors.forest },
+  chipActiveText: { color: Colors.white },
+  scaledKcal: { fontFamily: Typography.geistMono, fontSize: 32, fontWeight: '500', color: Colors.forest, textAlign: 'center', marginTop: 12 },
 });
