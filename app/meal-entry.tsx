@@ -35,11 +35,12 @@ import {
   cacheBarcode,
   type Ingredient,
 } from '../lib/db';
-import { analysePhoto, getGeminiKey, type GeminiIngredient } from '../lib/gemini';
+import { analysePhoto, analyseMealText, getGeminiKey, type GeminiIngredient } from '../lib/gemini';
+import { searchLocalFoods } from '../lib/localfoods';
 import { insertSavedMeal, getAllSavedMeals, type SavedMeal } from '../lib/savedMeals';
 
 type Slot = 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack';
-type Method = 'photo' | 'barcode' | 'manual' | 'saved';
+type Method = 'photo' | 'barcode' | 'manual' | 'saved' | 'describe';
 
 
 export default function MealEntry() {
@@ -67,6 +68,11 @@ export default function MealEntry() {
   const [photoIngredients, setPhotoIngredients] = useState<Array<Ingredient & { confidence: number; confirmed: boolean }>>([]);
   const [rateLimitCountdown, setRateLimitCountdown] = useState(0);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Describe state
+  const [describeText, setDescribeText] = useState('');
+  const [describeAnalysing, setDescribeAnalysing] = useState(false);
+  const [describeIngredients, setDescribeIngredients] = useState<Array<Ingredient & { confidence: number; confirmed: boolean }>>([]);
 
   // Save-as-meal toggle
   const [saveAsMeal, setSaveAsMeal] = useState(false);
@@ -155,13 +161,40 @@ export default function MealEntry() {
     }
   };
 
-  // Debounced search
+  const handleDescribeAnalyse = async () => {
+    if (!describeText.trim()) return;
+    setDescribeAnalysing(true);
+    setDescribeIngredients([]);
+    try {
+      const items = await analyseMealText(describeText, getGeminiKey());
+      const mapped = items.map((it: GeminiIngredient) => ({
+        name: it.confidence < 0.6 ? 'UNKNOWN' : it.name,
+        grams: it.grams,
+        kcal: it.kcal,
+        proteinG: it.protein_g,
+        carbsG: it.carbs_g,
+        fatG: it.fat_g,
+        fiberG: it.fiber_g,
+        confidence: it.confidence,
+        confirmed: it.confidence >= 0.6,
+      }));
+      setDescribeIngredients(mapped);
+    } catch (err: any) {
+      if (err.code === 429) startRateLimitCountdown();
+    } finally {
+      setDescribeAnalysing(false);
+    }
+  };
+
+  // Debounced search (merges local whole foods + Open Food Facts)
   useEffect(() => {
     if (!search.trim()) { setResults([]); return; }
     const t = setTimeout(async () => {
       setSearching(true);
-      const res = await searchFood(search);
-      setResults(res.slice(0, 15));
+      const local = searchLocalFoods(search);
+      const off = await searchFood(search);
+      const offDeduped = off.filter((o) => !local.some((l) => l.name.toLowerCase() === o.name.toLowerCase()));
+      setResults([...local, ...offDeduped].slice(0, 15));
       setSearching(false);
     }, 500);
     return () => clearTimeout(t);
@@ -314,6 +347,7 @@ export default function MealEntry() {
           <MethodCard icon="barcode" title="Barcode" desc="Scan packaged food" onPress={() => setMethod('barcode')} />
           <MethodCard icon="edit" title="Manual" desc="Type ingredients & grams" onPress={() => setMethod('manual')} />
           <MethodCard icon="bookmark" title="Saved" desc="From your library" onPress={() => setMethod('saved')} />
+          <MethodCard icon="search" title="Describe" desc="Tell AI what you ate · it fills in the macros" onPress={() => { setDescribeText(''); setDescribeIngredients([]); setMethod('describe'); }} />
         </ScrollView>
       )}
 
@@ -592,6 +626,105 @@ export default function MealEntry() {
             <View style={{ height: 80 }} />
           </ScrollView>
         )
+      )}
+
+      {/* === DESCRIBE FLOW === */}
+      {method === 'describe' && !describeAnalysing && describeIngredients.length === 0 && (
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ScrollView contentContainerStyle={styles.manualContent} keyboardShouldPersistTaps="handled">
+            {!getGeminiKey() ? (
+              <View style={styles.comingSoon}>
+                <Icon name="warn" size={40} color={Colors.amber} />
+                <Text style={styles.comingSoonText}>Gemini key not set</Text>
+                <Text style={styles.rateLimitSub}>Add FF_GEMINI_KEY to your .env file</Text>
+                <Btn label="Go back" kind="ghost" onPress={() => setMethod(null)} style={{ marginTop: 8 }} />
+              </View>
+            ) : rateLimitCountdown > 0 ? (
+              <View style={styles.comingSoon}>
+                <Icon name="clock" size={40} color={Colors.amber} />
+                <Text style={styles.comingSoonText}>Rate limited</Text>
+                <Text style={styles.rateLimitSub}>Retry in {rateLimitCountdown}s</Text>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.sectionLabel}>DESCRIBE YOUR MEAL</Text>
+                <TextInput
+                  style={describe.input}
+                  placeholder={"e.g. 2 scrambled eggs, toast with butter, glass of orange juice"}
+                  placeholderTextColor={Colors.muted}
+                  value={describeText}
+                  onChangeText={setDescribeText}
+                  multiline
+                  numberOfLines={4}
+                  autoFocus
+                />
+                <Btn label="Analyse meal" kind="primary" full onPress={handleDescribeAnalyse} />
+              </>
+            )}
+          </ScrollView>
+        </KeyboardAvoidingView>
+      )}
+
+      {method === 'describe' && describeAnalysing && (
+        <View style={styles.analysisBox}>
+          <View style={styles.shimmerList}>
+            {[1, 2, 3].map((i) => <View key={i} style={styles.shimmerRow} />)}
+          </View>
+          <Text style={styles.analysisLabel}>Analysing your meal…</Text>
+        </View>
+      )}
+
+      {method === 'describe' && !describeAnalysing && describeIngredients.length > 0 && (
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ScrollView contentContainerStyle={styles.manualContent} keyboardShouldPersistTaps="handled">
+            <View style={styles.photoHeader}>
+              <Text style={styles.photoFound}>Found {describeIngredients.length} items</Text>
+              {describeIngredients.some(p => !p.confirmed) && (
+                <View style={styles.warnBanner}>
+                  <Icon name="warn" size={14} color={Colors.amber} />
+                  <Text style={styles.warnText}>
+                    {describeIngredients.filter(p => !p.confirmed).length} item(s) were uncertain — tap UNKNOWN to name them.
+                  </Text>
+                </View>
+              )}
+            </View>
+            {describeIngredients.map((item, i) => (
+              <PhotoIngredientRow
+                key={i}
+                item={item}
+                onGramsChange={(g) => {
+                  const per100 = item.grams > 0 ? 100 / item.grams : 1;
+                  const n = { name: item.name, brand: '', kcalPer100g: item.kcal * per100, proteinPer100g: item.proteinG * per100, carbsPer100g: item.carbsG * per100, fatPer100g: item.fatG * per100, fiberPer100g: item.fiberG * per100 };
+                  const scaled = scaleNutrients(n, g);
+                  setDescribeIngredients(prev => prev.map((p, j) => j === i ? { ...p, grams: g, ...scaled } : p));
+                }}
+                onConfirmName={(name) => {
+                  setDescribeIngredients(prev => prev.map((p, j) => j === i ? { ...p, name, confirmed: true } : p));
+                }}
+              />
+            ))}
+            <View style={{ height: 140 }} />
+          </ScrollView>
+          <View style={styles.footer}>
+            <View style={styles.footerTotals}>
+              <TotalChip label="kcal" value={Math.round(totalsOf(describeIngredients).kcal)} bold />
+              <TotalChip label="P" value={Math.round(totalsOf(describeIngredients).protein)} color={Colors.macroProtein} />
+              <TotalChip label="C" value={Math.round(totalsOf(describeIngredients).carbs)} color={Colors.macroCarbs} />
+              <TotalChip label="F" value={Math.round(totalsOf(describeIngredients).fat)} color={Colors.macroFat} />
+            </View>
+            {!describeIngredients.every(p => p.confirmed) ? (
+              <>
+                <View style={styles.warnBanner}>
+                  <Icon name="warn" size={14} color={Colors.amber} />
+                  <Text style={styles.warnText}>Name all unknown items before saving</Text>
+                </View>
+                <Btn label="Confirm & save" kind="primary" full disabled />
+              </>
+            ) : (
+              <Btn label="Add to log" kind="primary" full onPress={() => saveIngredients(describeIngredients)} />
+            )}
+          </View>
+        </KeyboardAvoidingView>
       )}
 
       {method === 'saved' && selectedSaved && (
@@ -938,6 +1071,14 @@ const tc = StyleSheet.create({
   v: { fontFamily: Typography.geistMono, fontSize: 16, fontWeight: '500', color: Colors.forest },
   bold: { fontSize: 18 },
   l: { fontFamily: Typography.geist, fontSize: 11, color: Colors.muted },
+});
+
+const describe = StyleSheet.create({
+  input: {
+    fontFamily: Typography.geist, fontSize: 15, color: Colors.forest,
+    backgroundColor: Colors.sage, borderRadius: 12, padding: 16,
+    minHeight: 120, textAlignVertical: 'top', lineHeight: 22,
+  },
 });
 
 const savedRow = StyleSheet.create({
