@@ -136,8 +136,10 @@ export default function MealEntry() {
     setPhotoAnalysing(true);
     setPhotoIngredients([]);
     const startTime = Date.now();
+    console.log('[photo] base64 length:', base64.length, 'key present:', !!getGeminiKey());
     try {
       const items = await analysePhoto(base64, getGeminiKey());
+      console.log('[photo] items:', JSON.stringify(items));
       // Minimum 1.2s shimmer display
       const elapsed = Date.now() - startTime;
       if (elapsed < 1200) await new Promise(r => setTimeout(r, 1200 - elapsed));
@@ -154,6 +156,7 @@ export default function MealEntry() {
       }));
       setPhotoIngredients(mapped);
     } catch (err: any) {
+      console.log('[photo] error:', err?.message, 'code:', err?.code, err);
       if (err.code === 429) startRateLimitCountdown();
       else setPhotoIngredients([]);
     } finally {

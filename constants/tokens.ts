@@ -10,10 +10,11 @@ export const Colors = {
   amber: '#f6ae2d',
   ice: '#b5f8fe',
   white: '#ffffff',
-  macroProtein: '#464e47',
-  macroCarbs: '#f6ae2d',
-  macroFat: '#ff4a1c',
+  macroProtein: '#c96a50',
+  macroCarbs: '#7ea8be',
+  macroFat: '#f6ae2d',
   macroFiber: '#7a847a',
+  waterBlue: '#6db8d4',
 } as const;
 
 export const Typography = {

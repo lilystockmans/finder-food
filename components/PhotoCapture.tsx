@@ -38,16 +38,21 @@ export function PhotoCapture({ onCapture, onClose }: PhotoCaptureProps) {
   const takePicture = async () => {
     if (!cameraRef.current || capturing) return;
     setCapturing(true);
+    console.log('[camera] taking picture...');
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.8, base64: false });
-      if (!photo?.uri) return;
-      // Resize to max 1024px long edge
+      console.log('[camera] photo uri:', photo?.uri);
+      if (!photo?.uri) { console.log('[camera] no uri, aborting'); return; }
       const resized = await ImageManipulator.manipulateAsync(
         photo.uri,
         [{ resize: { width: 1024 } }],
         { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true }
       );
+      console.log('[camera] resized base64 length:', resized.base64?.length);
       if (resized.base64) onCapture(resized.base64);
+      else console.log('[camera] no base64 returned from manipulator');
+    } catch (e) {
+      console.log('[camera] error:', e);
     } finally {
       setCapturing(false);
     }

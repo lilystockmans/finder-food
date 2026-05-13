@@ -34,7 +34,7 @@ export async function analysePhoto(
         ],
       },
     ],
-    generationConfig: { temperature: 0.1, maxOutputTokens: 1024 },
+    generationConfig: { temperature: 0.1, maxOutputTokens: 4096 },
   };
 
   const res = await fetch(endpoint, {
@@ -43,16 +43,24 @@ export async function analysePhoto(
     body: JSON.stringify(body),
   });
 
+  console.log('[gemini] response status:', res.status);
   if (res.status === 429) {
     const err = new Error('RATE_LIMIT') as any;
     err.code = 429;
     throw err;
   }
 
-  if (!res.ok) throw new Error(`Gemini error ${res.status}`);
+  if (!res.ok) {
+    const errBody = await res.text();
+    console.log('[gemini] error body:', errBody);
+    throw new Error(`Gemini error ${res.status}`);
+  }
 
   const data = await res.json();
-  const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+  const parts: any[] = data.candidates?.[0]?.content?.parts ?? [];
+  console.log('[gemini] parts count:', parts.length, 'part types:', parts.map(p => p.thought ? 'thought' : 'text'));
+  const text: string = parts.filter((p) => !p.thought).map((p) => p.text ?? '').join('');
+  console.log('[gemini] extracted text:', text.slice(0, 200));
 
   // Extract JSON array from response
   const match = text.match(/\[[\s\S]*\]/);
@@ -76,7 +84,7 @@ export async function analyseMealText(
         ],
       },
     ],
-    generationConfig: { temperature: 0.2, maxOutputTokens: 1024 },
+    generationConfig: { temperature: 0.2, maxOutputTokens: 4096 },
   };
 
   const res = await fetch(endpoint, {
@@ -94,7 +102,8 @@ export async function analyseMealText(
   if (!res.ok) throw new Error(`Gemini error ${res.status}`);
 
   const data = await res.json();
-  const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+  const parts: any[] = data.candidates?.[0]?.content?.parts ?? [];
+  const text: string = parts.filter((p) => !p.thought).map((p) => p.text ?? '').join('');
 
   const match = text.match(/\[[\s\S]*\]/);
   if (!match) throw new Error('Invalid Gemini response');

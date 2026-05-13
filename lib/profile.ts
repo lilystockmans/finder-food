@@ -60,6 +60,23 @@ export function clearProfile() {
   db.runSync('DELETE FROM kv_store WHERE key = ?', [KEY]);
 }
 
+export function getKv(key: string): string | null {
+  try {
+    ensureKvTable();
+    const db = getDb();
+    const row = db.getFirstSync<{ value: string }>('SELECT value FROM kv_store WHERE key = ?', [key]);
+    return row ? row.value : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setKv(key: string, value: string) {
+  ensureKvTable();
+  const db = getDb();
+  db.runSync('INSERT OR REPLACE INTO kv_store (key, value) VALUES (?, ?)', [key, value]);
+}
+
 export function appendWeightEntry(kg: number) {
   const profile = loadProfile();
   if (!profile) return;

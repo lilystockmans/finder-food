@@ -18,7 +18,8 @@ import { Btn } from '../../components/Btn';
 import { Icon } from '../../components/Icon';
 import { Colors, Typography, Spacing } from '../../constants/tokens';
 import { loadProfile, appendWeightEntry, type Profile } from '../../lib/profile';
-import { getMealsForDate } from '../../lib/db';
+import { getMealsForDate, getConsistencyDays } from '../../lib/db';
+import { calcTrendWeight } from '../../lib/nutrition';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CHART_WIDTH = SCREEN_WIDTH - Spacing.xl * 2 - 36; // card padding
@@ -43,11 +44,13 @@ export default function ProgressTab() {
   const [weightDraft, setWeightDraft] = useState(70);
   const [weightInput, setWeightInput] = useState('');
   const [chartView, setChartView] = useState<'weight' | 'intake'>('weight');
+  const [consistencyData, setConsistencyData] = useState<{ date: string; logged: boolean }[]>([]);
 
   useFocusEffect(useCallback(() => {
     const p = loadProfile();
     setProfile(p);
     if (p) { setWeightDraft(p.weightKg); setWeightInput(String(p.weightKg)); }
+    setConsistencyData(getConsistencyDays(12));
   }, []));
 
   const days = range === '7 days' ? 7 : range === '30 days' ? 30 : 90;
@@ -76,6 +79,14 @@ export default function ProgressTab() {
 
   const validWeights = weightData.filter((v): v is number => v !== null);
   const latestWeight = validWeights.at(-1) ?? profile?.weightKg ?? 0;
+
+  // Trend weight: pass full log so EMA is warmed up, then filter to chart range
+  const trendValues = useMemo(() => {
+    if (!profile || profile.weightLog.length < 5) return undefined;
+    const trendLog = calcTrendWeight(profile.weightLog);
+    const trendMap = new Map(trendLog.map(t => [t.date, t.trend]));
+    return dates.map(d => trendMap.get(d) ?? null);
+  }, [profile, dates.join(',')]);
   const firstWeight = validWeights[0] ?? latestWeight;
   const weightDelta = latestWeight - firstWeight;
 
@@ -148,6 +159,7 @@ export default function ProgressTab() {
                 dates={dates}
                 values={weightData}
                 goalKg={profile?.goalWeightKg}
+                trendValues={trendValues}
                 width={CHART_WIDTH}
                 height={CHART_HEIGHT}
               />
@@ -198,6 +210,12 @@ export default function ProgressTab() {
             )}
           </Card>
         )}
+
+        {/* Consistency calendar */}
+        <Card pad={18}>
+          <Text style={styles.chartTitle}>Consistency</Text>
+          <ConsistencyCalendar data={consistencyData} />
+        </Card>
       </ScrollView>
 
       {/* Log weight sheet */}
@@ -236,13 +254,22 @@ export default function ProgressTab() {
   );
 }
 
-function WeightChart({ dates, values, goalKg, width, height }: {
-  dates: string[]; values: (number | null)[]; goalKg?: number; width: number; height: number;
+function WeightChart({ dates, values, goalKg, trendValues, width, height }: {
+  dates: string[];
+  values: (number | null)[];
+  goalKg?: number;
+  trendValues?: (number | null)[];
+  width: number;
+  height: number;
 }) {
   const nonNull = values.filter((v): v is number => v !== null);
   if (nonNull.length === 0) return null;
-  const minV = Math.min(...nonNull, goalKg ?? Infinity) - 1;
-  const maxV = Math.max(...nonNull, goalKg ?? -Infinity) + 1;
+
+  const trendNonNull = trendValues?.filter((v): v is number => v !== null) ?? [];
+  const allVals = [...nonNull, ...trendNonNull, goalKg].filter((v): v is number => v !== undefined);
+
+  const minV = Math.min(...allVals) - 1;
+  const maxV = Math.max(...allVals) + 1;
   const range = maxV - minV || 1;
   const n = dates.length;
   const xStep = width / (n - 1 || 1);
@@ -250,7 +277,6 @@ function WeightChart({ dates, values, goalKg, width, height }: {
   const toX = (i: number) => i * xStep;
   const toY = (v: number) => height - ((v - minV) / range) * height;
 
-  // Build path for connected segments
   let path = '';
   let lastIdx = -1;
   values.forEach((v, i) => {
@@ -260,33 +286,56 @@ function WeightChart({ dates, values, goalKg, width, height }: {
     lastIdx = i;
   });
 
+  let trendPath = '';
+  let tLastIdx = -1;
+  trendValues?.forEach((v, i) => {
+    if (v === null) return;
+    if (tLastIdx < 0) { trendPath += `M${toX(i)},${toY(v)}`; }
+    else { trendPath += ` L${toX(i)},${toY(v)}`; }
+    tLastIdx = i;
+  });
+
   const goalY = goalKg ? toY(goalKg) : null;
+  const showTrend = trendValues && trendNonNull.length >= 5;
 
   return (
-    <Svg width={width} height={height + 20}>
-      {/* Goal line */}
-      {goalY != null && (
-        <Line
-          x1={0} y1={goalY} x2={width} y2={goalY}
-          stroke={Colors.amber} strokeWidth={1.5} strokeDasharray="4 3"
-        />
+    <View>
+      <Svg width={width} height={height + 20}>
+        {/* Goal line */}
+        {goalY != null && (
+          <Line x1={0} y1={goalY} x2={width} y2={goalY} stroke={Colors.muted} strokeWidth={1} strokeDasharray="4 3" />
+        )}
+        {/* Trend line (behind actual) */}
+        {showTrend && trendPath && (
+          <Path d={trendPath} stroke={Colors.macroCarbs} strokeWidth={1.5} fill="none" strokeDasharray="6 3" strokeLinecap="round" />
+        )}
+        {/* Actual weight line */}
+        {path && <Path d={path} stroke={Colors.forest} strokeWidth={2} fill="none" strokeLinejoin="round" strokeLinecap="round" />}
+        {/* Data points */}
+        {values.map((v, i) =>
+          v != null ? <Circle key={i} cx={toX(i)} cy={toY(v)} r={4} fill={Colors.forest} /> : null
+        )}
+        <SvgText x={0} y={height + 16} fontSize={10} fontFamily={Typography.geistMono} fill={Colors.muted}>
+          {dates[0]?.slice(5)}
+        </SvgText>
+        <SvgText x={width} y={height + 16} fontSize={10} fontFamily={Typography.geistMono} fill={Colors.muted} textAnchor="end">
+          {dates.at(-1)?.slice(5)}
+        </SvgText>
+      </Svg>
+      {/* Legend */}
+      {showTrend && (
+        <View style={styles.chartLegend}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendLine, { backgroundColor: Colors.forest }]} />
+            <Text style={styles.legendLabel}>Actual</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDash, { backgroundColor: Colors.macroCarbs }]} />
+            <Text style={styles.legendLabel}>Trend</Text>
+          </View>
+        </View>
       )}
-      {/* Weight line */}
-      {path && <Path d={path} stroke={Colors.forest} strokeWidth={2} fill="none" strokeLinejoin="round" strokeLinecap="round" />}
-      {/* Data points */}
-      {values.map((v, i) =>
-        v != null ? (
-          <Circle key={i} cx={toX(i)} cy={toY(v)} r={4} fill={Colors.forest} />
-        ) : null
-      )}
-      {/* X axis labels (first and last) */}
-      <SvgText x={0} y={height + 16} fontSize={10} fontFamily={Typography.geistMono} fill={Colors.muted}>
-        {dates[0]?.slice(5)}
-      </SvgText>
-      <SvgText x={width} y={height + 16} fontSize={10} fontFamily={Typography.geistMono} fill={Colors.muted} textAnchor="end">
-        {dates.at(-1)?.slice(5)}
-      </SvgText>
-    </Svg>
+    </View>
   );
 }
 
@@ -333,6 +382,48 @@ function IntakeChart({ dates, values, target, width, height }: {
   );
 }
 
+function ConsistencyCalendar({ data }: { data: { date: string; logged: boolean }[] }) {
+  const today = new Date().toISOString().split('T')[0];
+  const cellSize = Math.floor((CHART_WIDTH - 6 * 3) / 7);
+  const DOW = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  const logged = data.filter(d => d.logged).length;
+
+  return (
+    <View style={{ gap: 6 }}>
+      {/* Day of week labels */}
+      <View style={{ flexDirection: 'row', gap: 3 }}>
+        {DOW.map((d, i) => (
+          <View key={i} style={{ width: cellSize, alignItems: 'center' }}>
+            <Text style={{ fontFamily: Typography.geistMono, fontSize: 9, color: Colors.muted }}>{d}</Text>
+          </View>
+        ))}
+      </View>
+      {/* Grid */}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>
+        {data.map((item, i) => {
+          const isToday = item.date === today;
+          return (
+            <View
+              key={i}
+              style={{
+                width: cellSize,
+                height: cellSize,
+                borderRadius: 3,
+                backgroundColor: item.logged ? Colors.forest : Colors.line,
+                borderWidth: isToday ? 1.5 : 0,
+                borderColor: Colors.ember,
+              }}
+            />
+          );
+        })}
+      </View>
+      <Text style={{ fontFamily: Typography.geist, fontSize: 12, color: Colors.muted, marginTop: 4 }}>
+        {logged} / {data.length} days logged
+      </Text>
+    </View>
+  );
+}
+
 function AvgStat({ label, value, suffix = '', signed }: {
   label: string; value: number; suffix?: string; signed?: boolean;
 }) {
@@ -372,6 +463,11 @@ const styles = StyleSheet.create({
   avgLabel: { fontFamily: Typography.geist, fontSize: 11, color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.8 },
   projText: { fontFamily: Typography.geist, fontSize: 15, color: Colors.forest, lineHeight: 22 },
   projAccent: { fontFamily: Typography.instrumentSerif, fontStyle: 'italic', fontSize: 17 },
+  chartLegend: { flexDirection: 'row', gap: 16, marginTop: 8 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  legendLine: { width: 16, height: 2, borderRadius: 1 },
+  legendDash: { width: 16, height: 1.5, borderRadius: 1, opacity: 0.7 },
+  legendLabel: { fontFamily: Typography.geist, fontSize: 11, color: Colors.muted },
   sheetTitle: { fontFamily: Typography.geist, fontSize: 20, fontWeight: '500', color: Colors.forest, marginBottom: 24 },
   weightInputRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   weightInput: {
