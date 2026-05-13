@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
-import Slider from '@react-native-community/slider';
 import { router } from 'expo-router';
 import { OnboardingShell } from '../../components/OnboardingShell';
 import { useOnboarding } from '../../store/onboarding';
@@ -24,8 +23,7 @@ export default function Step6() {
   const min = units === 'imperial' ? 66 : 30;
   const max = units === 'imperial' ? 440 : 200;
 
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(String(displayGoal));
+  const [draft, setDraft] = useState(goalWeightKg > 0 ? String(displayGoal) : '');
 
   const setGoal = (rounded: number) => {
     set({ goalWeightKg: units === 'imperial' ? lbsToKg(rounded) : rounded });
@@ -66,40 +64,21 @@ export default function Step6() {
         <View style={styles.extras}>
           <Text style={styles.sectionLabel}>Goal weight</Text>
 
-          <View style={styles.sliderBlock}>
-            {editing ? (
-              <TextInput
-                style={styles.goalValue}
-                value={draft}
-                onChangeText={setDraft}
-                onBlur={() => commit(draft)}
-                onSubmitEditing={() => commit(draft)}
-                keyboardType="number-pad"
-                autoFocus
-                selectTextOnFocus
-              />
-            ) : (
-              <TouchableOpacity onPress={() => { setDraft(String(displayGoal)); setEditing(true); }}>
-                <Text style={styles.goalValue}>
-                  {displayGoal} <Text style={styles.goalSuffix}>{suffix}</Text>
-                </Text>
-              </TouchableOpacity>
-            )}
-            <Slider
-              style={styles.slider}
-              minimumValue={min}
-              maximumValue={max}
-              step={1}
-              value={displayGoal}
-              onValueChange={(v) => setGoal(Math.round(v))}
-              minimumTrackTintColor={Colors.forest}
-              maximumTrackTintColor={Colors.line}
-              thumbTintColor={Colors.forest}
+          <View style={styles.inputBlock}>
+            <TextInput
+              style={styles.goalValue}
+              value={draft}
+              onChangeText={setDraft}
+              onBlur={() => commit(draft)}
+              onSubmitEditing={() => commit(draft)}
+              keyboardType="number-pad"
+              autoFocus
+              selectTextOnFocus
+              placeholder={String(Math.round((min + max) / 2))}
+              placeholderTextColor={Colors.line}
+              maxLength={4}
             />
-            <View style={styles.sliderLabels}>
-              <Text style={styles.sliderLabel}>{min} {suffix}</Text>
-              <Text style={styles.sliderLabel}>{max} {suffix}</Text>
-            </View>
+            <Text style={styles.goalSuffix}>{suffix}</Text>
           </View>
 
           <Text style={[styles.sectionLabel, { marginTop: 24 }]}>
@@ -157,18 +136,19 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1.4,
   },
-  sliderBlock: { alignItems: 'center', width: '100%', gap: 4 },
+  inputBlock: { alignItems: 'center', gap: 4 },
   goalValue: {
     fontFamily: Typography.geistMono,
     fontSize: 48,
     fontWeight: '500',
     color: Colors.forest,
     textAlign: 'center',
+    borderBottomWidth: 2,
+    borderColor: Colors.forest,
+    minWidth: 140,
+    paddingVertical: 4,
   },
   goalSuffix: { fontFamily: Typography.geistMono, fontSize: 20, color: Colors.muted },
-  slider: { width: '100%', height: 40 },
-  sliderLabels: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', paddingHorizontal: 4 },
-  sliderLabel: { fontFamily: Typography.geistMono, fontSize: 12, color: Colors.muted },
   rateChips: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   chip: {
     paddingHorizontal: 18,

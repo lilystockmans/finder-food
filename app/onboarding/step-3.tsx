@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import Slider from '@react-native-community/slider';
+import { View, Text, TextInput, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { OnboardingShell } from '../../components/OnboardingShell';
 import { useOnboarding } from '../../store/onboarding';
@@ -8,13 +7,12 @@ import { Colors, Typography } from '../../constants/tokens';
 
 export default function Step3() {
   const { age, set } = useOnboarding();
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(String(age));
+  const [draft, setDraft] = useState(age > 0 ? String(age) : '');
 
-  const commit = (raw: string) => {
-    const n = parseInt(raw);
+  const handleChange = (v: string) => {
+    setDraft(v);
+    const n = parseInt(v);
     if (!isNaN(n) && n >= 13 && n <= 99) set({ age: n });
-    setEditing(false);
   };
 
   return (
@@ -25,39 +23,18 @@ export default function Step3() {
       onContinue={() => router.push('/onboarding/step-4')}
     >
       <View style={styles.container}>
-        {editing ? (
-          <TextInput
-            style={styles.value}
-            value={draft}
-            onChangeText={setDraft}
-            onBlur={() => commit(draft)}
-            onSubmitEditing={() => commit(draft)}
-            keyboardType="number-pad"
-            autoFocus
-            selectTextOnFocus
-          />
-        ) : (
-          <TouchableOpacity onPress={() => { setDraft(String(age)); setEditing(true); }}>
-            <Text style={styles.value}>
-              {age} <Text style={styles.suffix}>years</Text>
-            </Text>
-          </TouchableOpacity>
-        )}
-        <Slider
-          style={styles.slider}
-          minimumValue={13}
-          maximumValue={99}
-          step={1}
-          value={age}
-          onValueChange={(v) => { set({ age: Math.round(v) }); setDraft(String(Math.round(v))); }}
-          minimumTrackTintColor={Colors.forest}
-          maximumTrackTintColor={Colors.line}
-          thumbTintColor={Colors.forest}
+        <TextInput
+          style={styles.value}
+          value={draft}
+          onChangeText={handleChange}
+          keyboardType="number-pad"
+          autoFocus
+          selectTextOnFocus
+          placeholder="25"
+          placeholderTextColor={Colors.line}
+          maxLength={2}
         />
-        <View style={styles.labels}>
-          <Text style={styles.label}>13</Text>
-          <Text style={styles.label}>99</Text>
-        </View>
+        <Text style={styles.suffix}>years</Text>
       </View>
     </OnboardingShell>
   );
@@ -71,9 +48,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: Colors.forest,
     textAlign: 'center',
+    borderBottomWidth: 2,
+    borderColor: Colors.forest,
+    minWidth: 120,
+    paddingVertical: 4,
   },
   suffix: { fontFamily: Typography.geistMono, fontSize: 22, color: Colors.muted },
-  slider: { width: '100%', height: 40 },
-  labels: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', paddingHorizontal: 4 },
-  label: { fontFamily: Typography.geistMono, fontSize: 12, color: Colors.muted },
 });

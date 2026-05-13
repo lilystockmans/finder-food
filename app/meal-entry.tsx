@@ -66,6 +66,8 @@ export default function MealEntry() {
   const [photoCapturing, setPhotoCapturing] = useState(false);
   const [photoAnalysing, setPhotoAnalysing] = useState(false);
   const [photoIngredients, setPhotoIngredients] = useState<Array<Ingredient & { confidence: number; confirmed: boolean }>>([]);
+  const [photoCorrection, setPhotoCorrection] = useState('');
+  const [photoCorrecting, setPhotoCorrecting] = useState(false);
   const [rateLimitCountdown, setRateLimitCountdown] = useState(0);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -161,6 +163,33 @@ export default function MealEntry() {
       else setPhotoIngredients([]);
     } finally {
       setPhotoAnalysing(false);
+    }
+  };
+
+  const handlePhotoCorrection = async () => {
+    if (!photoCorrection.trim()) return;
+    setPhotoCorrecting(true);
+    try {
+      const currentList = photoIngredients.map(p => `${p.name} (${p.grams}g)`).join(', ');
+      const prompt = `Current detected ingredients: ${currentList}. Correction: ${photoCorrection}. Return the full updated ingredient list.`;
+      const items = await analyseMealText(prompt, getGeminiKey());
+      const mapped = items.map((it: GeminiIngredient) => ({
+        name: it.confidence < 0.6 ? 'UNKNOWN' : it.name,
+        grams: it.grams,
+        kcal: it.kcal,
+        proteinG: it.protein_g,
+        carbsG: it.carbs_g,
+        fatG: it.fat_g,
+        fiberG: it.fiber_g,
+        confidence: it.confidence,
+        confirmed: it.confidence >= 0.6,
+      }));
+      setPhotoIngredients(mapped);
+      setPhotoCorrection('');
+    } catch (err: any) {
+      if (err.code === 429) startRateLimitCountdown();
+    } finally {
+      setPhotoCorrecting(false);
     }
   };
 
@@ -348,7 +377,6 @@ export default function MealEntry() {
         <ScrollView contentContainerStyle={styles.methodGrid}>
           <MethodCard icon="camera" title="Photo" desc="Snap a meal · AI detects ingredients" onPress={() => setMethod('photo')} />
           <MethodCard icon="barcode" title="Barcode" desc="Scan packaged food" onPress={() => setMethod('barcode')} />
-          <MethodCard icon="edit" title="Manual" desc="Type ingredients & grams" onPress={() => setMethod('manual')} />
           <MethodCard icon="bookmark" title="Saved" desc="From your library" onPress={() => setMethod('saved')} />
           <MethodCard icon="search" title="Describe" desc="Tell AI what you ate · it fills in the macros" onPress={() => { setDescribeText(''); setDescribeIngredients([]); setMethod('describe'); }} />
         </ScrollView>
@@ -492,6 +520,26 @@ export default function MealEntry() {
                 }}
               />
             ))}
+
+            <View style={corr.box}>
+              <Text style={styles.sectionLabel}>Something wrong or missing?</Text>
+              <TextInput
+                style={corr.input}
+                placeholder="e.g. remove the sauce, add 200g rice, replace chicken with tofu"
+                placeholderTextColor={Colors.muted}
+                value={photoCorrection}
+                onChangeText={setPhotoCorrection}
+                multiline
+                numberOfLines={3}
+              />
+              <Btn
+                label={photoCorrecting ? 'Re-analysing…' : 'Re-analyse'}
+                kind="ghost"
+                onPress={handlePhotoCorrection}
+                disabled={!photoCorrection.trim() || photoCorrecting}
+              />
+            </View>
+
             <View style={{ height: 140 }} />
           </ScrollView>
 
@@ -1081,6 +1129,15 @@ const describe = StyleSheet.create({
     fontFamily: Typography.geist, fontSize: 15, color: Colors.forest,
     backgroundColor: Colors.sage, borderRadius: 12, padding: 16,
     minHeight: 120, textAlignVertical: 'top', lineHeight: 22,
+  },
+});
+
+const corr = StyleSheet.create({
+  box: { marginTop: 16, gap: 8, padding: 14, backgroundColor: Colors.sage, borderRadius: 12 },
+  input: {
+    fontFamily: Typography.geist, fontSize: 14, color: Colors.forest,
+    backgroundColor: Colors.white, borderRadius: 8, padding: 12,
+    minHeight: 72, textAlignVertical: 'top', lineHeight: 20,
   },
 });
 

@@ -1,6 +1,6 @@
 export type Sex = 'male' | 'female';
 export type GoalType = 'lose' | 'maintain' | 'gain';
-export type ActivityLevel = 1.2 | 1.375 | 1.55 | 1.725 | 1.9;
+export type ActivityLevel = 1.2 | 1.375 | 1.55 | 1.725;
 
 export function calcBMR(weightKg: number, heightCm: number, age: number, sex: Sex): number {
   const base = 10 * weightKg + 6.25 * heightCm - 5 * age;

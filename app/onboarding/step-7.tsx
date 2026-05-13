@@ -8,10 +8,9 @@ import type { ActivityLevel } from '../../lib/nutrition';
 
 const LEVELS: { value: ActivityLevel; label: string; desc: string }[] = [
   { value: 1.2, label: 'Sedentary', desc: 'Little or no exercise' },
-  { value: 1.375, label: 'Lightly active', desc: '1–3 days/week' },
-  { value: 1.55, label: 'Moderately active', desc: '3–5 days/week' },
-  { value: 1.725, label: 'Active', desc: '6–7 days/week' },
-  { value: 1.9, label: 'Very active', desc: 'Hard exercise daily' },
+  { value: 1.375, label: 'Lightly active', desc: 'About 3×/week' },
+  { value: 1.55, label: 'Active', desc: 'About 5×/week' },
+  { value: 1.725, label: 'Extremely active', desc: '6–7 days/week' },
 ];
 
 export default function Step7() {
