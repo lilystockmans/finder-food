@@ -33,7 +33,6 @@ export default function Step6() {
   const commit = (raw: string) => {
     const n = Math.round(parseFloat(raw));
     if (!isNaN(n) && n >= min && n <= max) setGoal(n);
-    setEditing(false);
   };
 
   return (
