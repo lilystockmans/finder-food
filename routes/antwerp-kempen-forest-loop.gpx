@@ -6,134 +6,197 @@
      xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
 
   <metadata>
-    <name>Antwerp Kempen Forest Loop</name>
-    <desc>2-hour motorcycle loop from Antwerp. 30 min E313 highway to Herentals, then 60 min twisty pine-forest roads through Kasterlee, Retie, Mol and Geel, 30 min highway return. Total approx 169 km. Forest roads rated by Detecht, Rever and BestBikingRoads communities for shade and twisties.</desc>
+    <name>Antwerp Kempen Twisty Loop via Turnhout</name>
+    <desc>
+      2-hour motorcycle loop from Antwerp. E34 highway NE to Turnhout (30 min),
+      then a big clockwise forest loop south through Geel, Mol, Retie and Arendonk
+      before returning to Turnhout and highway home. The loop spans ~17 km north-south
+      and ~17 km east-west so it is clearly visible on the map. Rated by Detecht and
+      Rever for the N13 pine corridor and Mol-Retie forest roads. Perfect shade on hot days.
+
+      Segment 1: E34 highway NE - Antwerp to Turnhout (approx 52 km, 28 min)
+      Segment 2: Twisty loop - Turnhout south to Geel, east to Mol, north to Retie,
+                 north to Arendonk, west back to Turnhout (approx 61 km, 65 min)
+      Segment 3: E34 highway SW - Turnhout back to Antwerp (approx 52 km, 28 min)
+      Total: approx 165 km, under 2 hours
+    </desc>
     <time>2026-05-24T14:00:00Z</time>
-    <bounds minlat="51.1636" minlon="4.4350" maxlat="51.2640" maxlon="5.1200"/>
+    <bounds minlat="51.1636" minlon="4.4120" maxlat="51.3267" maxlon="5.1150"/>
   </metadata>
 
-  <wpt lat="51.1958" lon="4.4350">
-    <name>START Antwerp Berchem</name>
-    <desc>Take E313 east toward Hasselt. 52 km to exit.</desc>
+  <!-- Key waypoints -->
+  <wpt lat="51.2120" lon="4.4467">
+    <name>START Antwerp Borgerhout</name>
+    <desc>Take E34 / A21 northeast toward Turnhout and Eindhoven. 52 km to exit.</desc>
     <sym>Flag, Green</sym>
   </wpt>
 
-  <wpt lat="51.1796" lon="4.8361">
-    <name>EXIT HIGHWAY Herentals jct 20</name>
-    <desc>Leave E313 after approx 30 min. Take N13 north toward Kasterlee. Twisties begin!</desc>
+  <wpt lat="51.3228" lon="4.9480">
+    <name>EXIT HIGHWAY Turnhout West</name>
+    <desc>Leave E34 after approx 28 min. Loop begins here. Head south on N13 toward Geel.</desc>
     <sym>Flag, Blue</sym>
   </wpt>
 
-  <wpt lat="51.2389" lon="4.9597">
-    <name>Kasterlee Pine Forest</name>
-    <desc>Deep Kempen pine village. Bear right on N19 east toward Retie. Rated top shaded road by Rever community.</desc>
-    <sym>Waypoint</sym>
-  </wpt>
-
-  <wpt lat="51.2636" lon="5.0733">
-    <name>Retie Northern Apex</name>
-    <desc>Northern turnaround point. Head south via B-roads toward Mol through heathland and pines.</desc>
+  <wpt lat="51.1636" lon="4.9890">
+    <name>Geel - southern apex of loop</name>
+    <desc>Lowest point of the loop. Head east on N71 toward Mol through pine forest.</desc>
     <sym>Waypoint</sym>
   </wpt>
 
   <wpt lat="51.1905" lon="5.1150">
-    <name>Mol Kempen Heart</name>
-    <desc>Mol center. Take N71 or N18 west toward Geel. Dense forest on both sides.</desc>
+    <name>Mol - eastern apex of loop</name>
+    <desc>Head north through forest toward Retie. Dense Kempen pine, excellent shade.</desc>
     <sym>Waypoint</sym>
   </wpt>
 
-  <wpt lat="51.1636" lon="4.9890">
-    <name>Geel Return Point</name>
-    <desc>Head south-west on N13 back to Herentals and the E313 motorway.</desc>
+  <wpt lat="51.2636" lon="5.0733">
+    <name>Retie - forest roads</name>
+    <desc>Continue north toward Arendonk on quiet heathland roads.</desc>
     <sym>Waypoint</sym>
   </wpt>
 
-  <wpt lat="51.1958" lon="4.4350">
+  <wpt lat="51.3267" lon="5.0811">
+    <name>Arendonk - northern apex of loop</name>
+    <desc>Head west on N118 back to Turnhout and the E34 highway home.</desc>
+    <sym>Waypoint</sym>
+  </wpt>
+
+  <wpt lat="51.2120" lon="4.4467">
     <name>END Back in Antwerp</name>
-    <desc>Total approx 2 h, 169 km. Highway 104 km, forest twisties 65 km.</desc>
+    <desc>Total approx 165 km, under 2 hours. Loop: 61 km of Kempen forest twisties.</desc>
     <sym>Flag, Red</sym>
   </wpt>
 
   <trk>
-    <name>Antwerp Kempen Forest Loop</name>
-    <desc>Motorcycle route rated by Detecht, Rever and BestBikingRoads. Pine forests keep roads 4-6 C cooler on hot days.</desc>
+    <name>Antwerp Kempen Twisty Loop via Turnhout</name>
+    <desc>E34 NE to Turnhout, big clockwise forest loop south through Geel-Mol-Retie-Arendonk, E34 back. Rated by Detecht and Rever communities.</desc>
     <trkseg>
 
-      <!-- E313 highway out: Antwerp to Herentals (approx 52 km) -->
-      <trkpt lat="51.1958" lon="4.4350"/>
-      <trkpt lat="51.1980" lon="4.4589"/>
-      <trkpt lat="51.2037" lon="4.5230"/>
-      <trkpt lat="51.2020" lon="4.5580"/>
-      <trkpt lat="51.1960" lon="4.5900"/>
-      <trkpt lat="51.1900" lon="4.6250"/>
-      <trkpt lat="51.1840" lon="4.6600"/>
-      <trkpt lat="51.1785" lon="4.6900"/>
-      <trkpt lat="51.1721" lon="4.7367"/>
-      <trkpt lat="51.1730" lon="4.7680"/>
-      <trkpt lat="51.1760" lon="4.7950"/>
-      <trkpt lat="51.1796" lon="4.8361"/>
+      <!-- ── SEGMENT 1: E34 highway NE, Antwerp to Turnhout (~52 km) ── -->
+      <trkpt lat="51.2120" lon="4.4467"/>
+      <trkpt lat="51.2220" lon="4.4620"/>
+      <trkpt lat="51.2320" lon="4.4820"/>
+      <trkpt lat="51.2420" lon="4.5050"/>
+      <trkpt lat="51.2510" lon="4.5280"/>
+      <trkpt lat="51.2580" lon="4.5530"/>
+      <trkpt lat="51.2640" lon="4.5800"/>
+      <trkpt lat="51.2700" lon="4.6080"/>
+      <trkpt lat="51.2745" lon="4.6360"/>
+      <trkpt lat="51.2790" lon="4.6650"/>
+      <trkpt lat="51.2830" lon="4.6950"/>
+      <trkpt lat="51.2870" lon="4.7270"/>
+      <trkpt lat="51.2910" lon="4.7600"/>
+      <trkpt lat="51.2950" lon="4.7930"/>
+      <trkpt lat="51.2990" lon="4.8230"/>
+      <trkpt lat="51.3030" lon="4.8510"/>
+      <trkpt lat="51.3070" lon="4.8760"/>
+      <trkpt lat="51.3110" lon="4.9000"/>
+      <trkpt lat="51.3160" lon="4.9210"/>
+      <trkpt lat="51.3200" lon="4.9370"/>
+      <trkpt lat="51.3228" lon="4.9480"/>
 
-      <!-- N13 north: Herentals to Kasterlee -->
-      <trkpt lat="51.1860" lon="4.8480"/>
-      <trkpt lat="51.1930" lon="4.8620"/>
-      <trkpt lat="51.2000" lon="4.8720"/>
-      <trkpt lat="51.2070" lon="4.8850"/>
-      <trkpt lat="51.2140" lon="4.8980"/>
-      <trkpt lat="51.2210" lon="4.9130"/>
-      <trkpt lat="51.2300" lon="4.9310"/>
-      <trkpt lat="51.2389" lon="4.9597"/>
+      <!-- ── SEGMENT 2: Twisty loop ── -->
 
-      <!-- N19 east: Kasterlee to Retie (top-rated shaded forest road) -->
-      <trkpt lat="51.2430" lon="4.9750"/>
-      <trkpt lat="51.2490" lon="4.9900"/>
-      <trkpt lat="51.2540" lon="5.0100"/>
-      <trkpt lat="51.2580" lon="5.0280"/>
-      <trkpt lat="51.2600" lon="5.0350"/>
-      <trkpt lat="51.2620" lon="5.0540"/>
-      <trkpt lat="51.2636" lon="5.0733"/>
-
-      <!-- B-roads south: Retie to Mol through Kempen heathland -->
-      <trkpt lat="51.2580" lon="5.0850"/>
-      <trkpt lat="51.2510" lon="5.0950"/>
-      <trkpt lat="51.2450" lon="5.0950"/>
-      <trkpt lat="51.2380" lon="5.1020"/>
-      <trkpt lat="51.2290" lon="5.1070"/>
-      <trkpt lat="51.2200" lon="5.1100"/>
-      <trkpt lat="51.2100" lon="5.1130"/>
-      <trkpt lat="51.2000" lon="5.1150"/>
-      <trkpt lat="51.1905" lon="5.1150"/>
-
-      <!-- N71 west: Mol to Geel (tree-lined, rated BestBikingRoads) -->
-      <trkpt lat="51.1880" lon="5.0980"/>
-      <trkpt lat="51.1850" lon="5.0800"/>
-      <trkpt lat="51.1820" lon="5.0700"/>
-      <trkpt lat="51.1790" lon="5.0500"/>
-      <trkpt lat="51.1760" lon="5.0300"/>
-      <trkpt lat="51.1720" lon="5.0100"/>
-      <trkpt lat="51.1690" lon="5.0000"/>
-      <trkpt lat="51.1660" lon="4.9950"/>
+      <!-- Turnhout south to Geel on N13 (~17 km, gentle bends through pine) -->
+      <trkpt lat="51.3228" lon="4.9480"/>
+      <trkpt lat="51.3190" lon="4.9510"/>
+      <trkpt lat="51.3150" lon="4.9535"/>
+      <trkpt lat="51.3100" lon="4.9555"/>
+      <trkpt lat="51.3040" lon="4.9570"/>
+      <trkpt lat="51.2970" lon="4.9582"/>
+      <trkpt lat="51.2900" lon="4.9592"/>
+      <trkpt lat="51.2830" lon="4.9602"/>
+      <trkpt lat="51.2760" lon="4.9614"/>
+      <trkpt lat="51.2680" lon="4.9630"/>
+      <trkpt lat="51.2600" lon="4.9650"/>
+      <trkpt lat="51.2520" lon="4.9670"/>
+      <trkpt lat="51.2440" lon="4.9700"/>
+      <trkpt lat="51.2360" lon="4.9730"/>
+      <trkpt lat="51.2270" lon="4.9760"/>
+      <trkpt lat="51.2170" lon="4.9790"/>
+      <trkpt lat="51.2060" lon="4.9820"/>
+      <trkpt lat="51.1940" lon="4.9850"/>
+      <trkpt lat="51.1820" lon="4.9870"/>
+      <trkpt lat="51.1720" lon="4.9882"/>
       <trkpt lat="51.1636" lon="4.9890"/>
 
-      <!-- N13 south: Geel back to Herentals -->
-      <trkpt lat="51.1680" lon="4.9600"/>
-      <trkpt lat="51.1710" lon="4.9300"/>
-      <trkpt lat="51.1730" lon="4.9000"/>
-      <trkpt lat="51.1750" lon="4.8750"/>
-      <trkpt lat="51.1770" lon="4.8550"/>
-      <trkpt lat="51.1796" lon="4.8361"/>
+      <!-- Geel east to Mol on N71 (~14 km, tree-lined rated road) -->
+      <trkpt lat="51.1636" lon="4.9890"/>
+      <trkpt lat="51.1645" lon="4.9990"/>
+      <trkpt lat="51.1658" lon="5.0110"/>
+      <trkpt lat="51.1675" lon="5.0240"/>
+      <trkpt lat="51.1697" lon="5.0370"/>
+      <trkpt lat="51.1720" lon="5.0480"/>
+      <trkpt lat="51.1745" lon="5.0580"/>
+      <trkpt lat="51.1768" lon="5.0680"/>
+      <trkpt lat="51.1790" lon="5.0780"/>
+      <trkpt lat="51.1814" lon="5.0870"/>
+      <trkpt lat="51.1838" lon="5.0960"/>
+      <trkpt lat="51.1860" lon="5.1040"/>
+      <trkpt lat="51.1882" lon="5.1100"/>
+      <trkpt lat="51.1905" lon="5.1150"/>
 
-      <!-- E313 highway return: Herentals to Antwerp (approx 52 km) -->
-      <trkpt lat="51.1760" lon="4.7950"/>
-      <trkpt lat="51.1730" lon="4.7680"/>
-      <trkpt lat="51.1721" lon="4.7367"/>
-      <trkpt lat="51.1785" lon="4.6900"/>
-      <trkpt lat="51.1840" lon="4.6600"/>
-      <trkpt lat="51.1900" lon="4.6250"/>
-      <trkpt lat="51.1960" lon="4.5900"/>
-      <trkpt lat="51.2020" lon="4.5580"/>
-      <trkpt lat="51.2037" lon="4.5230"/>
-      <trkpt lat="51.1980" lon="4.4589"/>
-      <trkpt lat="51.1958" lon="4.4350"/>
+      <!-- Mol north to Retie through forest (~12 km, pine corridor, Rever top-rated) -->
+      <trkpt lat="51.1905" lon="5.1150"/>
+      <trkpt lat="51.1960" lon="5.1110"/>
+      <trkpt lat="51.2020" lon="5.1070"/>
+      <trkpt lat="51.2080" lon="5.1030"/>
+      <trkpt lat="51.2140" lon="5.0990"/>
+      <trkpt lat="51.2200" lon="5.0960"/>
+      <trkpt lat="51.2260" lon="5.0930"/>
+      <trkpt lat="51.2320" lon="5.0900"/>
+      <trkpt lat="51.2380" lon="5.0870"/>
+      <trkpt lat="51.2440" lon="5.0840"/>
+      <trkpt lat="51.2510" lon="5.0800"/>
+      <trkpt lat="51.2570" lon="5.0766"/>
+      <trkpt lat="51.2636" lon="5.0733"/>
+
+      <!-- Retie north to Arendonk through heathland (~8 km) -->
+      <trkpt lat="51.2636" lon="5.0733"/>
+      <trkpt lat="51.2700" lon="5.0744"/>
+      <trkpt lat="51.2760" lon="5.0754"/>
+      <trkpt lat="51.2820" lon="5.0764"/>
+      <trkpt lat="51.2880" lon="5.0774"/>
+      <trkpt lat="51.2940" lon="5.0782"/>
+      <trkpt lat="51.3000" lon="5.0789"/>
+      <trkpt lat="51.3070" lon="5.0795"/>
+      <trkpt lat="51.3140" lon="5.0800"/>
+      <trkpt lat="51.3210" lon="5.0806"/>
+      <trkpt lat="51.3267" lon="5.0811"/>
+
+      <!-- Arendonk west to Turnhout on N118 (~10 km, back road through forest) -->
+      <trkpt lat="51.3267" lon="5.0811"/>
+      <trkpt lat="51.3260" lon="5.0650"/>
+      <trkpt lat="51.3252" lon="5.0490"/>
+      <trkpt lat="51.3244" lon="5.0330"/>
+      <trkpt lat="51.3238" lon="5.0170"/>
+      <trkpt lat="51.3234" lon="5.0010"/>
+      <trkpt lat="51.3231" lon="4.9840"/>
+      <trkpt lat="51.3229" lon="4.9660"/>
+      <trkpt lat="51.3228" lon="4.9480"/>
+
+      <!-- ── SEGMENT 3: E34 highway SW, Turnhout back to Antwerp (~52 km) ── -->
+      <trkpt lat="51.3228" lon="4.9480"/>
+      <trkpt lat="51.3200" lon="4.9370"/>
+      <trkpt lat="51.3160" lon="4.9210"/>
+      <trkpt lat="51.3110" lon="4.9000"/>
+      <trkpt lat="51.3070" lon="4.8760"/>
+      <trkpt lat="51.3030" lon="4.8510"/>
+      <trkpt lat="51.2990" lon="4.8230"/>
+      <trkpt lat="51.2950" lon="4.7930"/>
+      <trkpt lat="51.2910" lon="4.7600"/>
+      <trkpt lat="51.2870" lon="4.7270"/>
+      <trkpt lat="51.2830" lon="4.6950"/>
+      <trkpt lat="51.2790" lon="4.6650"/>
+      <trkpt lat="51.2745" lon="4.6360"/>
+      <trkpt lat="51.2700" lon="4.6080"/>
+      <trkpt lat="51.2640" lon="4.5800"/>
+      <trkpt lat="51.2580" lon="4.5530"/>
+      <trkpt lat="51.2510" lon="4.5280"/>
+      <trkpt lat="51.2420" lon="4.5050"/>
+      <trkpt lat="51.2320" lon="4.4820"/>
+      <trkpt lat="51.2220" lon="4.4620"/>
+      <trkpt lat="51.2120" lon="4.4467"/>
 
     </trkseg>
   </trk>
