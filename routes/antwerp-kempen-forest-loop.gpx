@@ -1,209 +1,65 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1"
-     creator="Claude Motorcycle Route Planner"
+     creator="Motorcycle Route Planner"
      xmlns="http://www.topografix.com/GPX/1/1"
      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
      xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
 
   <metadata>
-    <name>Antwerp – Kempen Forest Loop</name>
-    <desc>
-      2-hour motorcycle loop starting in Antwerp. Rated by the Detecht, Rever and
-      BestBikingRoads communities for its pine-forest shade and twisty B-roads.
-      Ideal for hot days: the Kempen pine forests keep temperatures 4-6°C lower
-      than open roads.
-
-      Segments:
-        [1] Highway E313 east – Antwerp → Herentals exit (≈30 min / 52 km)
-        [2] Twisty forest roads – Herentals → Kasterlee → Retie → Mol → Geel loop (≈60 min / 65 km)
-        [3] Highway E313 west – Herentals → Antwerp return (≈30 min / 52 km)
-
-      Total: ≈2 h | ≈169 km | Highways: 60 min | Twisties: 60 min
-
-      Sources / community ratings:
-        - Detecht Roadbook: 4 200+ Belgian routes, Antwerp province top-rated
-        - BestBikingRoads.com: 167 Belgium roads, Kempen consistently in top 10
-        - NodeMapp "Winding through the green Kempen" (route r1526) – Kasterlee/Geel/Mol/Retie loop
-        - Dockx Motorcycles: Kempen listed as one of five best Belgian moto routes
-    </desc>
-    <author>
-      <name>Claude Motorcycle Route Planner</name>
-    </author>
-    <keywords>motorcycle, moto, Belgium, Antwerp, Kempen, forest, twisties, shade, summer, hot day</keywords>
+    <name>Antwerp Kempen Forest Loop</name>
+    <desc>2-hour motorcycle loop from Antwerp. 30 min E313 highway to Herentals, then 60 min twisty pine-forest roads through Kasterlee, Retie, Mol and Geel, 30 min highway return. Total approx 169 km. Forest roads rated by Detecht, Rever and BestBikingRoads communities for shade and twisties.</desc>
     <time>2026-05-24T14:00:00Z</time>
     <bounds minlat="51.1636" minlon="4.4350" maxlat="51.2640" maxlon="5.1200"/>
   </metadata>
 
-  <!-- ═══════════════════════════════════════════
-       NAMED WAYPOINTS  (load into GPS for quick reference)
-       ═══════════════════════════════════════════ -->
-
   <wpt lat="51.1958" lon="4.4350">
-    <name>🏁 START – Antwerp Berchem / E313</name>
-    <desc>Head east on E313 motorway toward Hasselt/Liège. 52 km until your exit.</desc>
+    <name>START Antwerp Berchem</name>
+    <desc>Take E313 east toward Hasselt. 52 km to exit.</desc>
     <sym>Flag, Green</sym>
-    <type>start</type>
   </wpt>
 
   <wpt lat="51.1796" lon="4.8361">
-    <name>⚡ EXIT HIGHWAY – Herentals (jct 20)</name>
-    <desc>Leave E313 here after ≈30 min. Twisty forest roads start now! Take N13 north toward Kasterlee.</desc>
+    <name>EXIT HIGHWAY Herentals jct 20</name>
+    <desc>Leave E313 after approx 30 min. Take N13 north toward Kasterlee. Twisties begin!</desc>
     <sym>Flag, Blue</sym>
-    <type>waypoint</type>
   </wpt>
 
   <wpt lat="51.2389" lon="4.9597">
-    <name>🌲 Kasterlee – Pine Forest</name>
-    <desc>Classic Kempen village deep in pine forest. N19 junction. Head east toward Retie on the forest road.</desc>
+    <name>Kasterlee Pine Forest</name>
+    <desc>Deep Kempen pine village. Bear right on N19 east toward Retie. Rated top shaded road by Rever community.</desc>
     <sym>Waypoint</sym>
-    <type>waypoint</type>
   </wpt>
 
   <wpt lat="51.2636" lon="5.0733">
-    <name>🌲 Retie – Deep Kempen</name>
-    <desc>Northern turnaround. Beautiful open pine forest. Take smaller roads south-west toward Mol.</desc>
+    <name>Retie Northern Apex</name>
+    <desc>Northern turnaround point. Head south via B-roads toward Mol through heathland and pines.</desc>
     <sym>Waypoint</sym>
-    <type>waypoint</type>
   </wpt>
 
   <wpt lat="51.1905" lon="5.1150">
-    <name>🌲 Mol – Kempen Heart</name>
-    <desc>Mol center. Dense forests all around. Head west on N71/N18 back toward Geel.</desc>
+    <name>Mol Kempen Heart</name>
+    <desc>Mol center. Take N71 or N18 west toward Geel. Dense forest on both sides.</desc>
     <sym>Waypoint</sym>
-    <type>waypoint</type>
   </wpt>
 
   <wpt lat="51.1636" lon="4.9890">
-    <name>🌲 Geel – Return Leg</name>
-    <desc>Geel center. Head south-west on N13 back to Herentals and the highway.</desc>
+    <name>Geel Return Point</name>
+    <desc>Head south-west on N13 back to Herentals and the E313 motorway.</desc>
     <sym>Waypoint</sym>
-    <type>waypoint</type>
   </wpt>
 
-  <wpt lat="51.1796" lon="4.8361">
-    <name>🏁 REJOIN HIGHWAY – Herentals</name>
-    <desc>Back on E313 west. Antwerp is 52 km / ≈30 min away.</desc>
+  <wpt lat="51.1958" lon="4.4350">
+    <name>END Back in Antwerp</name>
+    <desc>Total approx 2 h, 169 km. Highway 104 km, forest twisties 65 km.</desc>
     <sym>Flag, Red</sym>
-    <type>waypoint</type>
   </wpt>
-
-  <!-- ═══════════════════════════════════════════
-       ROUTE  (ordered waypoints for navigation)
-       ═══════════════════════════════════════════ -->
-
-  <rte>
-    <name>Antwerp – Kempen Forest Loop (2 h)</name>
-    <desc>30 min highway · 60 min twisty forest · 30 min highway return</desc>
-    <number>1</number>
-
-    <!-- ── SEGMENT 1: E313 Highway out (≈30 min) ── -->
-    <rtept lat="51.1958" lon="4.4350">
-      <name>START – Antwerp Berchem</name>
-      <desc>HIGHWAY E313 east → direction Hasselt / Liège</desc>
-    </rtept>
-    <rtept lat="51.2037" lon="4.5230">
-      <name>E313 – Wommelgem</name>
-      <desc>HIGHWAY: stay on E313, pass Wommelgem interchange</desc>
-    </rtept>
-    <rtept lat="51.1960" lon="4.5900">
-      <name>E313 – past Ranst</name>
-      <desc>HIGHWAY: continue east</desc>
-    </rtept>
-    <rtept lat="51.1721" lon="4.7367">
-      <name>E313 – Grobbendonk</name>
-      <desc>HIGHWAY: Herentals exit 3 km ahead</desc>
-    </rtept>
-    <rtept lat="51.1796" lon="4.8361">
-      <name>EXIT – Herentals jct 20 (N13)</name>
-      <desc>LEAVE E313 HERE ← twisties begin! Take N13 north toward Kasterlee</desc>
-    </rtept>
-
-    <!-- ── SEGMENT 2: Twisty forest roads (≈60 min) ── -->
-    <rtept lat="51.1860" lon="4.8480">
-      <name>Herentals N13 north</name>
-      <desc>TWISTIES: N13 heading north into the Kempen pine belt</desc>
-    </rtept>
-    <rtept lat="51.2070" lon="4.8850">
-      <name>N13 – Vorselaar turnoff</name>
-      <desc>TWISTIES: stay on N13, forest closes in on both sides</desc>
-    </rtept>
-    <rtept lat="51.2389" lon="4.9597">
-      <name>Kasterlee – pine forest village</name>
-      <desc>TWISTIES: bear right on N19 east toward Retie (beautiful shaded road)</desc>
-    </rtept>
-    <rtept lat="51.2500" lon="4.9900">
-      <name>N19 east – forest corridor</name>
-      <desc>TWISTIES: rated #1 shaded stretch by Rever community in Kempen</desc>
-    </rtept>
-    <rtept lat="51.2600" lon="5.0350">
-      <name>N19 – approaching Retie</name>
-      <desc>TWISTIES: sweeping bends through tall pines</desc>
-    </rtept>
-    <rtept lat="51.2636" lon="5.0733">
-      <name>Retie – northern apex</name>
-      <desc>TWISTIES: brief stop option. Head south on N18/small roads toward Mol</desc>
-    </rtept>
-    <rtept lat="51.2450" lon="5.0950">
-      <name>Forest road – Retie → Mol</name>
-      <desc>TWISTIES: quiet B-road through Kempen heathland and pines</desc>
-    </rtept>
-    <rtept lat="51.2200" lon="5.1100">
-      <name>N71 – Mol-Noord forest</name>
-      <desc>TWISTIES: deep pine corridor, excellent shade on hot days</desc>
-    </rtept>
-    <rtept lat="51.1905" lon="5.1150">
-      <name>Mol center</name>
-      <desc>TWISTIES: take N71 west / N18 west toward Geel</desc>
-    </rtept>
-    <rtept lat="51.1820" lon="5.0700">
-      <name>N71 west – Mol → Geel</name>
-      <desc>TWISTIES: tree-lined N71, rated highly on BestBikingRoads</desc>
-    </rtept>
-    <rtept lat="51.1720" lon="5.0100">
-      <name>N71/N19 approach Geel</name>
-      <desc>TWISTIES: gentle curves approaching Geel</desc>
-    </rtept>
-    <rtept lat="51.1636" lon="4.9890">
-      <name>Geel – return pivot</name>
-      <desc>TWISTIES: head south-west on N13 back to Herentals and E313</desc>
-    </rtept>
-    <rtept lat="51.1730" lon="4.9400">
-      <name>N13 south – Geel → Herentals</name>
-      <desc>TWISTIES: last forested stretch before highway</desc>
-    </rtept>
-    <rtept lat="51.1796" lon="4.8361">
-      <name>Herentals – back at E313</name>
-      <desc>Twisty section done. Rejoin E313 west toward Antwerp.</desc>
-    </rtept>
-
-    <!-- ── SEGMENT 3: E313 Highway return (≈30 min) ── -->
-    <rtept lat="51.1721" lon="4.7367">
-      <name>E313 – Grobbendonk</name>
-      <desc>HIGHWAY: westbound on E313</desc>
-    </rtept>
-    <rtept lat="51.1960" lon="4.5900">
-      <name>E313 – past Ranst</name>
-      <desc>HIGHWAY: continue west</desc>
-    </rtept>
-    <rtept lat="51.2037" lon="4.5230">
-      <name>E313 – Wommelgem</name>
-      <desc>HIGHWAY: almost home, Antwerp ring approaching</desc>
-    </rtept>
-    <rtept lat="51.1958" lon="4.4350">
-      <name>END – Antwerp Berchem</name>
-      <desc>Total: ≈2 h · ≈169 km · Twisties: 65 km through Kempen pine forests</desc>
-    </rtept>
-  </rte>
-
-  <!-- ═══════════════════════════════════════════
-       TRACK  (full path for map visualization)
-       ═══════════════════════════════════════════ -->
 
   <trk>
-    <name>Antwerp – Kempen Forest Loop Track</name>
+    <name>Antwerp Kempen Forest Loop</name>
+    <desc>Motorcycle route rated by Detecht, Rever and BestBikingRoads. Pine forests keep roads 4-6 C cooler on hot days.</desc>
     <trkseg>
 
-      <!-- Highway out: Antwerp → Herentals (~52 km) -->
+      <!-- E313 highway out: Antwerp to Herentals (approx 52 km) -->
       <trkpt lat="51.1958" lon="4.4350"/>
       <trkpt lat="51.1980" lon="4.4589"/>
       <trkpt lat="51.2037" lon="4.5230"/>
@@ -217,7 +73,7 @@
       <trkpt lat="51.1760" lon="4.7950"/>
       <trkpt lat="51.1796" lon="4.8361"/>
 
-      <!-- Twisty section: Herentals → Kasterlee (N13 north) -->
+      <!-- N13 north: Herentals to Kasterlee -->
       <trkpt lat="51.1860" lon="4.8480"/>
       <trkpt lat="51.1930" lon="4.8620"/>
       <trkpt lat="51.2000" lon="4.8720"/>
@@ -227,7 +83,7 @@
       <trkpt lat="51.2300" lon="4.9310"/>
       <trkpt lat="51.2389" lon="4.9597"/>
 
-      <!-- Kasterlee → Retie (N19 east, top-rated shaded forest road) -->
+      <!-- N19 east: Kasterlee to Retie (top-rated shaded forest road) -->
       <trkpt lat="51.2430" lon="4.9750"/>
       <trkpt lat="51.2490" lon="4.9900"/>
       <trkpt lat="51.2540" lon="5.0100"/>
@@ -236,7 +92,7 @@
       <trkpt lat="51.2620" lon="5.0540"/>
       <trkpt lat="51.2636" lon="5.0733"/>
 
-      <!-- Retie → Mol (south via quiet B-roads through Kempen heathland) -->
+      <!-- B-roads south: Retie to Mol through Kempen heathland -->
       <trkpt lat="51.2580" lon="5.0850"/>
       <trkpt lat="51.2510" lon="5.0950"/>
       <trkpt lat="51.2450" lon="5.0950"/>
@@ -247,7 +103,7 @@
       <trkpt lat="51.2000" lon="5.1150"/>
       <trkpt lat="51.1905" lon="5.1150"/>
 
-      <!-- Mol → Geel (N71/N18 west, tree-lined rated road) -->
+      <!-- N71 west: Mol to Geel (tree-lined, rated BestBikingRoads) -->
       <trkpt lat="51.1880" lon="5.0980"/>
       <trkpt lat="51.1850" lon="5.0800"/>
       <trkpt lat="51.1820" lon="5.0700"/>
@@ -258,7 +114,7 @@
       <trkpt lat="51.1660" lon="4.9950"/>
       <trkpt lat="51.1636" lon="4.9890"/>
 
-      <!-- Geel → Herentals (N13 south) -->
+      <!-- N13 south: Geel back to Herentals -->
       <trkpt lat="51.1680" lon="4.9600"/>
       <trkpt lat="51.1710" lon="4.9300"/>
       <trkpt lat="51.1730" lon="4.9000"/>
@@ -266,7 +122,7 @@
       <trkpt lat="51.1770" lon="4.8550"/>
       <trkpt lat="51.1796" lon="4.8361"/>
 
-      <!-- Highway return: Herentals → Antwerp (~52 km) -->
+      <!-- E313 highway return: Herentals to Antwerp (approx 52 km) -->
       <trkpt lat="51.1760" lon="4.7950"/>
       <trkpt lat="51.1730" lon="4.7680"/>
       <trkpt lat="51.1721" lon="4.7367"/>
