@@ -20,7 +20,7 @@ import { Colors, Typography, Spacing } from '../../constants/tokens';
 import { loadProfile, appendWeightEntry, addPeriodEntry, type Profile } from '../../lib/profile';
 import { getMealsForDate } from '../../lib/db';
 import { calcTrendWeight, calcMacroGrams } from '../../lib/nutrition';
-import { analyseWeek, getGeminiKey, type WeekAnalysis } from '../../lib/gemini';
+import { analyseWeek, getGeminiKey, geminiErrorMessage, type WeekAnalysis } from '../../lib/gemini';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CHART_WIDTH = SCREEN_WIDTH - Spacing.xl * 2 - 36; // card padding
@@ -204,7 +204,7 @@ export default function ProgressTab() {
       const result = await analyseWeek(weeklySummaryText, getGeminiKey());
       setWeekAnalysis(result);
     } catch (err: any) {
-      setWeekAnalysisError("Couldn't generate insights — try again");
+      setWeekAnalysisError(geminiErrorMessage(err));
     } finally {
       setWeekAnalysisLoading(false);
     }

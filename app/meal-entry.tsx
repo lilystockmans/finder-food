@@ -34,7 +34,7 @@ import {
   cacheBarcode,
   type Ingredient,
 } from '../lib/db';
-import { analysePhoto, analyseMealText, getGeminiKey, type GeminiIngredient } from '../lib/gemini';
+import { analysePhoto, analyseMealText, getGeminiKey, geminiErrorMessage, type GeminiIngredient } from '../lib/gemini';
 import { searchLocalFoods } from '../lib/localfoods';
 
 type Slot = 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack';
@@ -148,9 +148,9 @@ export default function MealEntry() {
         setPhotoIngredients(mapGeminiItems(items));
       }
     } catch (err: any) {
-      console.log('[photo] error:', err?.message, 'code:', err?.code, err);
+      console.log('[photo] error kind:', err?.kind, 'code:', err?.code, err);
       if (err.code === 429) startRateLimitCountdown();
-      else { setPhotoIngredients([]); setPhotoError("Couldn't read that — try again"); }
+      else { setPhotoIngredients([]); setPhotoError(geminiErrorMessage(err)); }
     } finally {
       setPhotoAnalysing(false);
     }
@@ -168,7 +168,7 @@ export default function MealEntry() {
       setPhotoCorrection('');
     } catch (err: any) {
       if (err.code === 429) startRateLimitCountdown();
-      else { setPhotoError("Couldn't process that — try again"); }
+      else { setPhotoError(geminiErrorMessage(err)); }
     } finally {
       setPhotoCorrecting(false);
     }
@@ -184,7 +184,7 @@ export default function MealEntry() {
       setDescribeIngredients(mapGeminiItems(items));
     } catch (err: any) {
       if (err.code === 429) startRateLimitCountdown();
-      else { setDescribeError("Couldn't process that — try again"); }
+      else { setDescribeError(geminiErrorMessage(err)); }
     } finally {
       setDescribeAnalysing(false);
     }
