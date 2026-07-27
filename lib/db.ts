@@ -40,22 +40,6 @@ function runMigrations(database: SQLite.SQLiteDatabase) {
       productJson TEXT NOT NULL,
       cachedAt INTEGER NOT NULL
     );
-    CREATE TABLE IF NOT EXISTS saved_meals (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      ingredientsJson TEXT NOT NULL,
-      totalKcal REAL NOT NULL,
-      totalProteinG REAL NOT NULL,
-      totalCarbsG REAL NOT NULL,
-      totalFatG REAL NOT NULL,
-      totalFiberG REAL NOT NULL,
-      createdAt INTEGER NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS water (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      date TEXT NOT NULL UNIQUE,
-      cups INTEGER NOT NULL DEFAULT 0
-    );
   `);
 }
 
@@ -74,7 +58,7 @@ export type MealEntry = {
   date: string;
   timestampMs: number;
   slot: 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack';
-  method: 'manual' | 'barcode' | 'photo' | 'saved';
+  method: 'manual' | 'barcode' | 'photo' | 'saved' | 'describe';
   mealName: string;
   ingredients: Ingredient[];
   totalKcal: number;
@@ -90,6 +74,12 @@ export function getMealsForDate(date: string): MealEntry[] {
     'SELECT * FROM meal_entries WHERE date = ? ORDER BY timestampMs ASC',
     [date]
   );
+  return rows.map(rowToMeal);
+}
+
+export function getAllMeals(): MealEntry[] {
+  const db = getDb();
+  const rows = db.getAllSync<any>('SELECT * FROM meal_entries ORDER BY timestampMs ASC');
   return rows.map(rowToMeal);
 }
 

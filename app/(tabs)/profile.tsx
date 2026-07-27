@@ -17,6 +17,7 @@ import { Icon } from '../../components/Icon';
 import { Colors, Typography, Spacing, Radius } from '../../constants/tokens';
 import { loadProfile, saveProfile, clearProfile, type Profile } from '../../lib/profile';
 import { calcMacroGrams, kgToLbs, lbsToKg } from '../../lib/nutrition';
+import { exportDataToShareSheet } from '../../lib/export';
 
 export default function ProfileTab() {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -60,6 +61,14 @@ export default function ProfileTab() {
     } else {
       const ratio = current.macroP / (current.macroP + current.macroC) || 0.5;
       return { macroF: clamped, macroP: Math.round(remaining * ratio), macroC: Math.round(remaining * (1 - ratio)) };
+    }
+  };
+
+  const handleExportData = async () => {
+    try {
+      await exportDataToShareSheet();
+    } catch (e: any) {
+      Alert.alert('Export failed', e?.message ?? 'Something went wrong while exporting your data.');
     }
   };
 
@@ -120,6 +129,10 @@ export default function ProfileTab() {
             onPress={() => setSheet('settings')}
           />
         </View>
+
+        <TouchableOpacity onPress={handleExportData} style={styles.exportBtn}>
+          <Text style={styles.exportText}>Export My Data</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity onPress={handleRerunOnboarding} style={styles.resetBtn}>
           <Text style={styles.resetText}>Re-run onboarding</Text>
@@ -356,6 +369,20 @@ const styles = StyleSheet.create({
     borderColor: Colors.line,
     overflow: 'hidden',
   },
+  exportBtn: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    backgroundColor: Colors.white,
+    borderRadius: Radius.card,
+    borderWidth: 1,
+    borderColor: Colors.line,
+  },
+  exportText: {
+    fontFamily: Typography.geist,
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.forest,
+  },
   resetBtn: {
     paddingVertical: 16,
     alignItems: 'center',
@@ -363,7 +390,7 @@ const styles = StyleSheet.create({
   resetText: {
     fontFamily: Typography.geist,
     fontSize: 14,
-    color: Colors.ember,
+    color: Colors.warn,
   },
 });
 

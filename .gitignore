@@ -41,5 +41,9 @@ yarn-error.*
 /ios
 /android
 
+# build artifacts — never commit APKs (each ~100MB)
+*.apk
+*.aab
+
 # Claude Code internals
 .claude/

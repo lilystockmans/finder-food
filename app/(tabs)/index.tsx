@@ -22,13 +22,17 @@ import {
   type MealEntry, type Ingredient, type RecentMeal,
 } from '../../lib/db';
 import { loadProfile, saveProfile, getKv, setKv, type Profile } from '../../lib/profile';
-import { insertSavedMeal } from '../../lib/savedMeals';
 import { calcMacroGrams, calcWeeklyAdaptation, type AdaptationResult } from '../../lib/nutrition';
-import { getTodayWater, setTodayWater } from '../../lib/water';
 import { useAppStore } from '../../store';
 
 type Slot = 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack';
 const SLOTS: Slot[] = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+
+function offsetDate(dateStr: string, days: number): string {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split('T')[0];
+}
 
 function getMondayStr(dateStr: string): string {
   const d = new Date(dateStr + 'T12:00:00');
@@ -43,14 +47,13 @@ export default function Dashboard() {
   const [meals, setMeals] = useState<MealEntry[]>([]);
   const [editMeal, setEditMeal] = useState<MealEntry | null>(null);
   const [streak, setStreak] = useState(0);
-  const [waterCups, setWaterCups] = useState(0);
   const [recentMeals, setRecentMeals] = useState<RecentMeal[]>([]);
   const [adaptResult, setAdaptResult] = useState<AdaptationResult | null>(null);
   const [showAdaptCard, setShowAdaptCard] = useState(false);
   const [reLogMeal, setReLogMeal] = useState<{ meal: RecentMeal; slot: Slot } | null>(null);
   const [reLogMultiplier, setReLogMultiplier] = useState(1);
   const [reLogCustom, setReLogCustom] = useState('');
-  const { openEntry, viewDate, mealsRefreshKey, refreshMeals } = useAppStore();
+  const { openEntry, viewDate, setViewDate, mealsRefreshKey, refreshMeals } = useAppStore();
 
   const today = new Date().toISOString().split('T')[0];
   const isToday = viewDate === today;
@@ -60,11 +63,10 @@ export default function Dashboard() {
     setProfile(p);
     if (p) {
       setMeals(getMealsForDate(viewDate));
+      setRecentMeals(getRecentMeals(7, 6));
     }
     if (isToday) {
       setStreak(getLoggingStreak());
-      setWaterCups(getTodayWater(today));
-      setRecentMeals(getRecentMeals(7, 6));
 
       if (p && p.weightLog.length >= 14) {
         const result = calcWeeklyAdaptation(p, p.weightLog);
@@ -97,14 +99,6 @@ export default function Dashboard() {
   const greetingHour = new Date().getHours();
   const greeting =
     greetingHour < 12 ? 'Good morning' : greetingHour < 17 ? 'Good afternoon' : 'Good evening';
-
-  const handleWaterTap = (n: number) => {
-    if (!isToday) return;
-    const next = waterCups === n ? n - 1 : n;
-    const clamped = Math.max(0, next);
-    setWaterCups(clamped);
-    setTodayWater(today, clamped);
-  };
 
   const handleAdaptApply = () => {
     if (!profile || !adaptResult) return;
@@ -147,7 +141,7 @@ export default function Dashboard() {
     insertMeal({
       id: Date.now().toString(),
       date: viewDate,
-      timestampMs: Date.now(),
+      timestampMs: isToday ? Date.now() : new Date(viewDate + 'T12:00:00').getTime(),
       slot,
       method: 'saved',
       mealName: meal.mealName,
@@ -172,18 +166,48 @@ export default function Dashboard() {
         {/* Greeting */}
         <View style={styles.greeting}>
           <View style={styles.greetLeft}>
-            <Text style={styles.dateLabel}>
-              {new Date(viewDate + 'T12:00:00').toLocaleDateString('en-US', {
-                weekday: 'short', month: 'short', day: 'numeric',
-              }).toUpperCase()}
-            </Text>
-            <Text style={styles.greetText}>
-              {greeting},{' '}
-              <Text style={styles.greetName}>{profile?.firstName ?? 'there'}</Text>
-            </Text>
+            <View style={styles.dateNav}>
+              <TouchableOpacity onPress={() => setViewDate(offsetDate(viewDate, -1))} hitSlop={8}>
+                <Icon name="chev-l" size={14} color={Colors.muted} sw={2} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={!isToday ? () => setViewDate(today) : undefined}
+                activeOpacity={isToday ? 1 : 0.6}
+              >
+                <Text style={styles.dateLabel}>
+                  {new Date(viewDate + 'T12:00:00').toLocaleDateString('en-US', {
+                    weekday: 'short', month: 'short', day: 'numeric',
+                  }).toUpperCase()}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={!isToday ? () => setViewDate(offsetDate(viewDate, 1)) : undefined}
+                disabled={isToday}
+                hitSlop={8}
+                style={{ opacity: isToday ? 0.2 : 1 }}
+              >
+                <Icon name="chev-r" size={14} color={Colors.muted} sw={2} />
+              </TouchableOpacity>
+            </View>
+            {isToday ? (
+              <Text style={styles.greetText}>
+                {greeting},{' '}
+                <Text style={styles.greetName}>{profile?.firstName ?? 'there'}</Text>
+              </Text>
+            ) : (
+              <View>
+                <Text style={styles.greetText}>
+                  <Text style={styles.greetName}>{profile?.firstName ?? 'Your'}</Text>
+                  {"'s log"}
+                </Text>
+                <TouchableOpacity onPress={() => setViewDate(today)} style={styles.backToToday}>
+                  <Text style={styles.backToTodayText}>← back to today</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
           <View style={styles.greetRight}>
-            {streak >= 2 && (
+            {isToday && streak >= 2 && (
               <View style={styles.streakBadge}>
                 <Text style={styles.streakFlame}>🔥</Text>
                 <Text style={styles.streakCount}>{streak}</Text>
@@ -209,9 +233,6 @@ export default function Dashboard() {
             <MacroBar label="Fat" value={Math.round(totals.fat)} target={macroTargets.fatG} color={Colors.macroFat} />
             <MacroBar label="Fiber" value={Math.round(totals.fiber)} target={profile?.fiberTargetG ?? 30} color={Colors.macroFiber} />
           </View>
-
-          {/* Water row */}
-          <WaterRow cups={waterCups} isToday={isToday} onTap={handleWaterTap} />
         </Card>
 
         {/* Weekly adaptation card */}
@@ -226,7 +247,7 @@ export default function Dashboard() {
         {/* Meals by slot */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionLabel}>TODAY</Text>
+            <Text style={styles.sectionLabel}>{isToday ? 'TODAY' : 'MEALS'}</Text>
             <Text style={styles.sectionDate}>
               {new Date(viewDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()}
             </Text>
@@ -246,7 +267,7 @@ export default function Dashboard() {
                 </View>
                 {slotMeals.length === 0 ? (
                   <>
-                    {isToday && slotRecent.length > 0 && (
+                    {slotRecent.length > 0 && (
                       <ScrollView
                         horizontal
                         showsHorizontalScrollIndicator={false}
@@ -266,15 +287,13 @@ export default function Dashboard() {
                         ))}
                       </ScrollView>
                     )}
-                    {isToday && (
-                      <TouchableOpacity
-                        onPress={() => { openEntry(slot); router.push('/meal-entry'); }}
-                        style={styles.emptySlot}
-                      >
-                        <Icon name="plus-s" size={14} color={Colors.muted} />
-                        <Text style={styles.emptySlotText}>add {slot.toLowerCase()}</Text>
-                      </TouchableOpacity>
-                    )}
+                    <TouchableOpacity
+                      onPress={() => { openEntry(slot); router.push('/meal-entry'); }}
+                      style={styles.emptySlot}
+                    >
+                      <Icon name="plus-s" size={14} color={Colors.muted} />
+                      <Text style={styles.emptySlotText}>add {slot.toLowerCase()}</Text>
+                    </TouchableOpacity>
                   </>
                 ) : (
                   slotMeals.map((meal) => (
@@ -346,29 +365,6 @@ export default function Dashboard() {
         )}
       </BottomSheet>
     </SafeAreaView>
-  );
-}
-
-function WaterRow({ cups, isToday, onTap }: { cups: number; isToday: boolean; onTap: (n: number) => void }) {
-  return (
-    <View style={water.container}>
-      <View style={water.header}>
-        <Text style={water.label}>WATER</Text>
-        <Text style={water.count}>{cups} / 8</Text>
-      </View>
-      <View style={water.cups}>
-        {[1, 2, 3, 4, 5, 6, 7, 8].map(n => (
-          <TouchableOpacity
-            key={n}
-            onPress={() => isToday && onTap(n)}
-            activeOpacity={isToday ? 0.7 : 1}
-            style={water.cupBtn}
-          >
-            <View style={[water.cup, n <= cups ? water.cupFilled : water.cupEmpty]} />
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
   );
 }
 
@@ -463,7 +459,6 @@ function MealEditSheet({ meal, onClose, onDelete, onMove, onUpdate }: {
 }) {
   const [view, setView] = useState<'actions' | 'move' | 'edit'>('actions');
   const [draftIngredients, setDraftIngredients] = useState<Ingredient[]>([]);
-  const [savedConfirm, setSavedConfirm] = useState(false);
 
   const startEdit = () => {
     setDraftIngredients(meal.ingredients.map(i => ({ ...i })));
@@ -473,20 +468,6 @@ function MealEditSheet({ meal, onClose, onDelete, onMove, onUpdate }: {
   const saveEdit = () => {
     onUpdate(draftIngredients);
     setView('actions');
-  };
-
-  const saveToLibrary = () => {
-    insertSavedMeal({
-      name: meal.mealName || meal.ingredients[0]?.name || 'Saved meal',
-      ingredients: meal.ingredients,
-      totalKcal: meal.totalKcal,
-      totalProteinG: meal.totalProteinG,
-      totalCarbsG: meal.totalCarbsG,
-      totalFatG: meal.totalFatG,
-      totalFiberG: meal.totalFiberG,
-    });
-    setSavedConfirm(true);
-    setTimeout(() => { setSavedConfirm(false); onClose(); }, 1200);
   };
 
   const updateIngredientGrams = (index: number, grams: number) => {
@@ -508,12 +489,6 @@ function MealEditSheet({ meal, onClose, onDelete, onMove, onUpdate }: {
     <View style={sheet.container}>
       <Text style={sheet.title}>{meal.mealName || meal.ingredients[0]?.name || 'Meal'}</Text>
       <Text style={sheet.sub}>{Math.round(meal.totalKcal)} kcal · {meal.slot}</Text>
-
-      {savedConfirm && (
-        <View style={sheet.confirm}>
-          <Text style={sheet.confirmText}>Saved to library ✓</Text>
-        </View>
-      )}
 
       {view === 'move' && (
         <View style={sheet.slots}>
@@ -545,7 +520,7 @@ function MealEditSheet({ meal, onClose, onDelete, onMove, onUpdate }: {
         </View>
       )}
 
-      {view === 'actions' && !savedConfirm && (
+      {view === 'actions' && (
         <View style={sheet.actions}>
           <TouchableOpacity style={sheet.action} onPress={startEdit}>
             <Icon name="edit" size={18} color={Colors.forest} />
@@ -555,13 +530,9 @@ function MealEditSheet({ meal, onClose, onDelete, onMove, onUpdate }: {
             <Icon name="move" size={18} color={Colors.forest} />
             <Text style={sheet.actionText}>Move to…</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={sheet.action} onPress={saveToLibrary}>
-            <Icon name="bookmark" size={18} color={Colors.forest} />
-            <Text style={sheet.actionText}>Save to library</Text>
-          </TouchableOpacity>
           <TouchableOpacity style={sheet.action} onPress={onDelete}>
-            <Icon name="trash" size={18} color={Colors.ember} />
-            <Text style={[sheet.actionText, { color: Colors.ember }]}>Delete</Text>
+            <Icon name="trash" size={18} color={Colors.warn} />
+            <Text style={[sheet.actionText, { color: Colors.warn }]}>Delete</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -612,6 +583,20 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.base,
   },
   greetLeft: { flex: 1 },
+  dateNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  backToToday: {
+    marginTop: 4,
+  },
+  backToTodayText: {
+    fontFamily: Typography.geist,
+    fontSize: 12,
+    color: Colors.ember,
+    fontWeight: '500',
+  },
   greetRight: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
   dateLabel: {
     fontFamily: Typography.geist,
@@ -728,24 +713,6 @@ const styles = StyleSheet.create({
   mealRight: { alignItems: 'flex-end', gap: 4 },
   mealKcal: { fontFamily: Typography.geistMono, fontSize: 15, fontWeight: '500', color: Colors.forest },
   mealChips: { flexDirection: 'row', gap: 4 },
-});
-
-const water = StyleSheet.create({
-  container: { gap: 8 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  label: {
-    fontFamily: Typography.geist,
-    fontSize: 11,
-    fontWeight: '600',
-    color: Colors.muted,
-    letterSpacing: 1.2,
-  },
-  count: { fontFamily: Typography.geistMono, fontSize: 12, color: Colors.muted },
-  cups: { flexDirection: 'row', gap: 6 },
-  cupBtn: { flex: 1, alignItems: 'center' },
-  cup: { width: '100%', aspectRatio: 0.75, borderRadius: 4, maxWidth: 28 },
-  cupFilled: { backgroundColor: Colors.waterBlue },
-  cupEmpty: { backgroundColor: Colors.line, borderWidth: 1, borderColor: Colors.muted + '30' },
 });
 
 const adapt = StyleSheet.create({

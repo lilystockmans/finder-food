@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -37,14 +36,15 @@ import {
 } from '../lib/db';
 import { analysePhoto, analyseMealText, getGeminiKey, type GeminiIngredient } from '../lib/gemini';
 import { searchLocalFoods } from '../lib/localfoods';
-import { insertSavedMeal, getAllSavedMeals, type SavedMeal } from '../lib/savedMeals';
 
 type Slot = 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack';
-type Method = 'photo' | 'barcode' | 'manual' | 'saved' | 'describe';
+type Method = 'photo' | 'barcode' | 'manual' | 'describe';
 
 
 export default function MealEntry() {
-  const { entrySlot, closeEntry, refreshMeals } = useAppStore();
+  const { entrySlot, closeEntry, refreshMeals, viewDate } = useAppStore();
+  const isToday = viewDate === new Date().toISOString().split('T')[0];
+  const entryTimestamp = isToday ? Date.now() : new Date(viewDate + 'T12:00:00').getTime();
   const [slot, setSlot] = useState<Slot>(entrySlot);
   const [method, setMethod] = useState<Method | null>(null);
   const [mealName, setMealName] = useState('');
@@ -68,6 +68,7 @@ export default function MealEntry() {
   const [photoIngredients, setPhotoIngredients] = useState<Array<Ingredient & { confidence: number; confirmed: boolean }>>([]);
   const [photoCorrection, setPhotoCorrection] = useState('');
   const [photoCorrecting, setPhotoCorrecting] = useState(false);
+  const [photoError, setPhotoError] = useState('');
   const [rateLimitCountdown, setRateLimitCountdown] = useState(0);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -75,26 +76,9 @@ export default function MealEntry() {
   const [describeText, setDescribeText] = useState('');
   const [describeAnalysing, setDescribeAnalysing] = useState(false);
   const [describeIngredients, setDescribeIngredients] = useState<Array<Ingredient & { confidence: number; confirmed: boolean }>>([]);
-
-  // Save-as-meal toggle
-  const [saveAsMeal, setSaveAsMeal] = useState(false);
-
-  // Saved meals flow
-  const [savedMeals, setSavedMeals] = useState<SavedMeal[]>([]);
-  const [selectedSaved, setSelectedSaved] = useState<SavedMeal | null>(null);
-  const [savedMult, setSavedMult] = useState(1);
-  const [savedMultInput, setSavedMultInput] = useState('1');
+  const [describeError, setDescribeError] = useState('');
 
   useEffect(() => { setSlot(entrySlot); }, [entrySlot]);
-
-  useEffect(() => {
-    if (method === 'saved') {
-      setSavedMeals(getAllSavedMeals());
-      setSelectedSaved(null);
-      setSavedMult(1);
-      setSavedMultInput('1');
-    }
-  }, [method]);
 
   // Load recent history
   useEffect(() => {
@@ -133,10 +117,23 @@ export default function MealEntry() {
     }, 1000);
   };
 
+  const mapGeminiItems = (items: GeminiIngredient[]) => items.map((it) => ({
+    name: it.confidence < 0.6 ? 'UNKNOWN' : it.name,
+    grams: it.grams,
+    kcal: it.kcal,
+    proteinG: it.protein_g,
+    carbsG: it.carbs_g,
+    fatG: it.fat_g,
+    fiberG: it.fiber_g,
+    confidence: it.confidence,
+    confirmed: it.confidence >= 0.6,
+  }));
+
   const handlePhotoCapture = async (base64: string) => {
     setPhotoCapturing(false);
     setPhotoAnalysing(true);
     setPhotoIngredients([]);
+    setPhotoError('');
     const startTime = Date.now();
     console.log('[photo] base64 length:', base64.length, 'key present:', !!getGeminiKey());
     try {
@@ -145,22 +142,15 @@ export default function MealEntry() {
       // Minimum 1.2s shimmer display
       const elapsed = Date.now() - startTime;
       if (elapsed < 1200) await new Promise(r => setTimeout(r, 1200 - elapsed));
-      const mapped = items.map((it: GeminiIngredient) => ({
-        name: it.confidence < 0.6 ? 'UNKNOWN' : it.name,
-        grams: it.grams,
-        kcal: it.kcal,
-        proteinG: it.protein_g,
-        carbsG: it.carbs_g,
-        fatG: it.fat_g,
-        fiberG: it.fiber_g,
-        confidence: it.confidence,
-        confirmed: it.confidence >= 0.6,
-      }));
-      setPhotoIngredients(mapped);
+      if (items.length === 0) {
+        setPhotoError("No food detected in that photo — try again with a clearer shot");
+      } else {
+        setPhotoIngredients(mapGeminiItems(items));
+      }
     } catch (err: any) {
       console.log('[photo] error:', err?.message, 'code:', err?.code, err);
       if (err.code === 429) startRateLimitCountdown();
-      else setPhotoIngredients([]);
+      else { setPhotoIngredients([]); setPhotoError("Couldn't read that — try again"); }
     } finally {
       setPhotoAnalysing(false);
     }
@@ -169,25 +159,16 @@ export default function MealEntry() {
   const handlePhotoCorrection = async () => {
     if (!photoCorrection.trim()) return;
     setPhotoCorrecting(true);
+    setPhotoError('');
     try {
       const currentList = photoIngredients.map(p => `${p.name} (${p.grams}g)`).join(', ');
       const prompt = `Current detected ingredients: ${currentList}. Correction: ${photoCorrection}. Return the full updated ingredient list.`;
       const items = await analyseMealText(prompt, getGeminiKey());
-      const mapped = items.map((it: GeminiIngredient) => ({
-        name: it.confidence < 0.6 ? 'UNKNOWN' : it.name,
-        grams: it.grams,
-        kcal: it.kcal,
-        proteinG: it.protein_g,
-        carbsG: it.carbs_g,
-        fatG: it.fat_g,
-        fiberG: it.fiber_g,
-        confidence: it.confidence,
-        confirmed: it.confidence >= 0.6,
-      }));
-      setPhotoIngredients(mapped);
+      setPhotoIngredients(mapGeminiItems(items));
       setPhotoCorrection('');
     } catch (err: any) {
       if (err.code === 429) startRateLimitCountdown();
+      else { setPhotoError("Couldn't process that — try again"); }
     } finally {
       setPhotoCorrecting(false);
     }
@@ -197,22 +178,13 @@ export default function MealEntry() {
     if (!describeText.trim()) return;
     setDescribeAnalysing(true);
     setDescribeIngredients([]);
+    setDescribeError('');
     try {
       const items = await analyseMealText(describeText, getGeminiKey());
-      const mapped = items.map((it: GeminiIngredient) => ({
-        name: it.confidence < 0.6 ? 'UNKNOWN' : it.name,
-        grams: it.grams,
-        kcal: it.kcal,
-        proteinG: it.protein_g,
-        carbsG: it.carbs_g,
-        fatG: it.fat_g,
-        fiberG: it.fiber_g,
-        confidence: it.confidence,
-        confirmed: it.confidence >= 0.6,
-      }));
-      setDescribeIngredients(mapped);
+      setDescribeIngredients(mapGeminiItems(items));
     } catch (err: any) {
       if (err.code === 429) startRateLimitCountdown();
+      else { setDescribeError("Couldn't process that — try again"); }
     } finally {
       setDescribeAnalysing(false);
     }
@@ -269,50 +241,12 @@ export default function MealEntry() {
     const finalName = nameOverride ?? mealName.trim();
     insertMeal({
       id: Date.now().toString(),
-      date: new Date().toISOString().split('T')[0],
-      timestampMs: Date.now(),
+      date: viewDate,
+      timestampMs: entryTimestamp,
       slot, method: method ?? 'manual',
       mealName: finalName,
       ingredients: list,
       totalKcal: t.kcal, totalProteinG: t.protein, totalCarbsG: t.carbs, totalFatG: t.fat, totalFiberG: t.fiber,
-    });
-    if (saveAsMeal) {
-      insertSavedMeal({
-        name: finalName || 'Saved meal',
-        ingredients: list,
-        totalKcal: t.kcal, totalProteinG: t.protein, totalCarbsG: t.carbs, totalFatG: t.fat, totalFiberG: t.fiber,
-      });
-    }
-    refreshMeals();
-    closeEntry();
-    router.back();
-  };
-
-  const logSavedMeal = (meal: SavedMeal, mult: number) => {
-    const ingredients = meal.ingredients.map((ing) => {
-      const per100 = ing.grams > 0 ? 100 / ing.grams : 1;
-      const scaled = scaleNutrients({
-        name: ing.name, brand: '',
-        kcalPer100g: ing.kcal * per100,
-        proteinPer100g: ing.proteinG * per100,
-        carbsPer100g: ing.carbsG * per100,
-        fatPer100g: ing.fatG * per100,
-        fiberPer100g: ing.fiberG * per100,
-      }, ing.grams * mult);
-      return { ...ing, grams: Math.round(ing.grams * mult), ...scaled };
-    });
-    const totals = ingredients.reduce(
-      (acc, i) => ({ kcal: acc.kcal + i.kcal, protein: acc.protein + i.proteinG, carbs: acc.carbs + i.carbsG, fat: acc.fat + i.fatG, fiber: acc.fiber + i.fiberG }),
-      { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 }
-    );
-    insertMeal({
-      id: Date.now().toString(),
-      date: new Date().toISOString().split('T')[0],
-      timestampMs: Date.now(),
-      slot, method: 'saved',
-      mealName: meal.name,
-      ingredients,
-      totalKcal: totals.kcal, totalProteinG: totals.protein, totalCarbsG: totals.carbs, totalFatG: totals.fat, totalFiberG: totals.fiber,
     });
     refreshMeals();
     closeEntry();
@@ -377,7 +311,6 @@ export default function MealEntry() {
         <ScrollView contentContainerStyle={styles.methodGrid}>
           <MethodCard icon="camera" title="Photo" desc="Snap a meal · AI detects ingredients" onPress={() => setMethod('photo')} />
           <MethodCard icon="barcode" title="Barcode" desc="Scan packaged food" onPress={() => setMethod('barcode')} />
-          <MethodCard icon="bookmark" title="Saved" desc="From your library" onPress={() => setMethod('saved')} />
           <MethodCard icon="search" title="Describe" desc="Tell AI what you ate · it fills in the macros" onPress={() => { setDescribeText(''); setDescribeIngredients([]); setMethod('describe'); }} />
         </ScrollView>
       )}
@@ -466,9 +399,9 @@ export default function MealEntry() {
             </>
           ) : getGeminiKey() ? (
             <>
-              <Icon name="camera" size={40} color={Colors.forest} />
-              <Text style={styles.comingSoonText}>Take a photo of your meal</Text>
-              <Btn label="Open camera" kind="primary" onPress={() => setPhotoCapturing(true)} style={{ marginTop: 8 }} />
+              <Icon name={photoError ? 'warn' : 'camera'} size={40} color={photoError ? Colors.amber : Colors.forest} />
+              <Text style={styles.comingSoonText}>{photoError || 'Take a photo of your meal'}</Text>
+              <Btn label={photoError ? 'Try again' : 'Open camera'} kind="primary" onPress={() => { setPhotoError(''); setPhotoCapturing(true); }} style={{ marginTop: 8 }} />
             </>
           ) : (
             <>
@@ -538,6 +471,12 @@ export default function MealEntry() {
                 onPress={handlePhotoCorrection}
                 disabled={!photoCorrection.trim() || photoCorrecting}
               />
+              {photoError ? (
+                <View style={styles.warnBanner}>
+                  <Icon name="warn" size={14} color={Colors.amber} />
+                  <Text style={styles.warnText}>{photoError}</Text>
+                </View>
+              ) : null}
             </View>
 
             <View style={{ height: 140 }} />
@@ -632,86 +571,34 @@ export default function MealEntry() {
                 <TotalChip label="C" value={Math.round(manualTotals.carbs)} color={Colors.macroCarbs} />
                 <TotalChip label="F" value={Math.round(manualTotals.fat)} color={Colors.macroFat} />
               </View>
-              <View style={styles.saveToggleRow}>
-                <Text style={styles.saveToggleLabel}>Save as meal</Text>
-                <Switch
-                  value={saveAsMeal}
-                  onValueChange={setSaveAsMeal}
-                  trackColor={{ true: Colors.forest, false: Colors.line }}
-                  thumbColor={Colors.white}
-                />
-              </View>
               <Btn label="Add to log" kind="primary" full onPress={() => saveIngredients(ingredients)} />
             </View>
           )}
         </KeyboardAvoidingView>
       )}
 
-      {/* === SAVED FLOW === */}
-      {method === 'saved' && !selectedSaved && (
-        savedMeals.length === 0 ? (
-          <View style={styles.comingSoon}>
-            <Icon name="bookmark" size={40} color={Colors.muted} />
-            <Text style={styles.comingSoonText}>No saved meals yet</Text>
-            <Text style={[styles.rateLimitSub, { color: Colors.muted, fontSize: 13 }]}>Log a meal and toggle "Save as meal"</Text>
-            <Btn label="Go back" kind="ghost" onPress={() => setMethod(null)} style={{ marginTop: 16 }} />
-          </View>
-        ) : (
-          <ScrollView contentContainerStyle={styles.manualContent}>
-            <Text style={styles.sectionLabel}>YOUR LIBRARY</Text>
-            {savedMeals.map((meal) => (
-              <TouchableOpacity
-                key={meal.id}
-                onPress={() => { setSelectedSaved(meal); setSavedMult(1); setSavedMultInput('1'); }}
-                activeOpacity={0.85}
-                style={savedRow.row}
-              >
-                <View style={savedRow.info}>
-                  <Text style={savedRow.name}>{meal.name}</Text>
-                  <Text style={savedRow.meta}>{meal.ingredients.length} ingredient{meal.ingredients.length !== 1 ? 's' : ''}</Text>
-                </View>
-                <Text style={savedRow.kcal}>{Math.round(meal.totalKcal)} kcal</Text>
-                <Icon name="chev-r" size={18} color={Colors.muted} />
-              </TouchableOpacity>
-            ))}
-            <View style={{ height: 80 }} />
-          </ScrollView>
-        )
-      )}
-
       {/* === DESCRIBE FLOW === */}
       {method === 'describe' && !describeAnalysing && describeIngredients.length === 0 && (
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView contentContainerStyle={styles.manualContent} keyboardShouldPersistTaps="handled">
-            {!getGeminiKey() ? (
-              <View style={styles.comingSoon}>
-                <Icon name="warn" size={40} color={Colors.amber} />
-                <Text style={styles.comingSoonText}>Gemini key not set</Text>
-                <Text style={styles.rateLimitSub}>Add FF_GEMINI_KEY to your .env file</Text>
-                <Btn label="Go back" kind="ghost" onPress={() => setMethod(null)} style={{ marginTop: 8 }} />
+            <Text style={styles.sectionLabel}>DESCRIBE YOUR MEAL</Text>
+            <TextInput
+              style={describe.input}
+              placeholder={"e.g. 2 scrambled eggs, toast with butter, glass of orange juice"}
+              placeholderTextColor={Colors.muted}
+              value={describeText}
+              onChangeText={setDescribeText}
+              multiline
+              numberOfLines={4}
+              autoFocus
+            />
+            <Btn label="Analyse meal" kind="primary" full onPress={handleDescribeAnalyse} />
+            {describeError ? (
+              <View style={styles.warnBanner}>
+                <Icon name="warn" size={14} color={Colors.amber} />
+                <Text style={styles.warnText}>{describeError}</Text>
               </View>
-            ) : rateLimitCountdown > 0 ? (
-              <View style={styles.comingSoon}>
-                <Icon name="clock" size={40} color={Colors.amber} />
-                <Text style={styles.comingSoonText}>Rate limited</Text>
-                <Text style={styles.rateLimitSub}>Retry in {rateLimitCountdown}s</Text>
-              </View>
-            ) : (
-              <>
-                <Text style={styles.sectionLabel}>DESCRIBE YOUR MEAL</Text>
-                <TextInput
-                  style={describe.input}
-                  placeholder={"e.g. 2 scrambled eggs, toast with butter, glass of orange juice"}
-                  placeholderTextColor={Colors.muted}
-                  value={describeText}
-                  onChangeText={setDescribeText}
-                  multiline
-                  numberOfLines={4}
-                  autoFocus
-                />
-                <Btn label="Analyse meal" kind="primary" full onPress={handleDescribeAnalyse} />
-              </>
-            )}
+            ) : null}
           </ScrollView>
         </KeyboardAvoidingView>
       )}
@@ -778,46 +665,6 @@ export default function MealEntry() {
         </KeyboardAvoidingView>
       )}
 
-      {method === 'saved' && selectedSaved && (
-        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <ScrollView contentContainerStyle={styles.manualContent}>
-            <TouchableOpacity onPress={() => setSelectedSaved(null)} style={savedRow.backBtn}>
-              <Icon name="chev-l" size={18} color={Colors.forest} />
-              <Text style={savedRow.backText}>Library</Text>
-            </TouchableOpacity>
-            <Text style={savedRow.mealTitle}>{selectedSaved.name}</Text>
-            <Text style={savedRow.mealMeta}>{selectedSaved.ingredients.length} ingredients · base {Math.round(selectedSaved.totalKcal)} kcal</Text>
-
-            <Text style={[styles.sectionLabel, { marginTop: 16 }]}>PORTION</Text>
-            <View style={savedRow.multChips}>
-              {[0.5, 1, 1.5, 2].map((m) => (
-                <TouchableOpacity
-                  key={m}
-                  onPress={() => { setSavedMult(m); setSavedMultInput(String(m)); }}
-                  style={[savedRow.chip, savedMult === m && savedRow.chipActive]}
-                >
-                  <Text style={[savedRow.chipText, savedMult === m && savedRow.chipActiveText]}>{m}×</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <TextInput
-              style={styles.mealNameInput}
-              value={savedMultInput}
-              onChangeText={(v) => { setSavedMultInput(v); const n = parseFloat(v); if (!isNaN(n)) setSavedMult(n); }}
-              keyboardType="decimal-pad"
-              placeholder="Custom multiplier"
-              placeholderTextColor={Colors.muted}
-            />
-            <Text style={savedRow.scaledKcal}>
-              {Math.round(selectedSaved.totalKcal * (parseFloat(savedMultInput) || 1))} kcal
-            </Text>
-            <View style={{ height: 100 }} />
-          </ScrollView>
-          <View style={styles.footer}>
-            <Btn label="Add to log" kind="primary" full onPress={() => logSavedMeal(selectedSaved, parseFloat(savedMultInput) || savedMult)} />
-          </View>
-        </KeyboardAvoidingView>
-      )}
     </SafeAreaView>
   );
 }
@@ -1063,11 +910,6 @@ const styles = StyleSheet.create({
   comingSoon: { flex: 1, backgroundColor: Colors.white, alignItems: 'center', justifyContent: 'center', gap: 12 },
   comingSoonText: { fontFamily: Typography.geist, fontSize: 18, color: Colors.muted },
   rateLimitSub: { fontFamily: Typography.geistMono, fontSize: 14, color: Colors.amber },
-  saveToggleRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: 4,
-  },
-  saveToggleLabel: { fontFamily: Typography.geist, fontSize: 14, color: Colors.forest },
 });
 
 const mc = StyleSheet.create({
@@ -1141,20 +983,3 @@ const corr = StyleSheet.create({
   },
 });
 
-const savedRow = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderColor: Colors.line, gap: 8 },
-  info: { flex: 1 },
-  name: { fontFamily: Typography.geist, fontSize: 15, fontWeight: '500', color: Colors.forest },
-  meta: { fontFamily: Typography.geist, fontSize: 12, color: Colors.muted, marginTop: 2 },
-  kcal: { fontFamily: Typography.geistMono, fontSize: 13, color: Colors.muted },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingBottom: 12 },
-  backText: { fontFamily: Typography.geist, fontSize: 14, color: Colors.forest },
-  mealTitle: { fontFamily: Typography.geist, fontSize: 20, fontWeight: '500', color: Colors.forest },
-  mealMeta: { fontFamily: Typography.geist, fontSize: 13, color: Colors.muted, marginTop: 2 },
-  multChips: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 12 },
-  chip: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, backgroundColor: Colors.paper, borderWidth: 1, borderColor: Colors.line },
-  chipActive: { backgroundColor: Colors.forest, borderColor: Colors.forest },
-  chipText: { fontFamily: Typography.geistMono, fontSize: 14, color: Colors.forest },
-  chipActiveText: { color: Colors.white },
-  scaledKcal: { fontFamily: Typography.geistMono, fontSize: 32, fontWeight: '500', color: Colors.forest, textAlign: 'center', marginTop: 12 },
-});

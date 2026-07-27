@@ -20,6 +20,7 @@ export type Profile = {
   fiberTargetG: number;
   firstName: string;
   weightLog: WeightEntry[];
+  periodLog: string[];
 };
 
 const KEY = 'ff:profile';
@@ -39,7 +40,9 @@ export function loadProfile(): Profile | null {
     ensureKvTable();
     const db = getDb();
     const row = db.getFirstSync<{ value: string }>('SELECT value FROM kv_store WHERE key = ?', [KEY]);
-    return row ? JSON.parse(row.value) : null;
+    if (!row) return null;
+    const profile = JSON.parse(row.value);
+    return { periodLog: [], ...profile };
   } catch {
     return null;
   }
@@ -87,5 +90,15 @@ export function appendWeightEntry(kg: number) {
   } else {
     profile.weightLog.push({ date, kg });
   }
+  saveProfile(profile);
+}
+
+export function addPeriodEntry(date?: string) {
+  const profile = loadProfile();
+  if (!profile) return;
+  const entryDate = date ?? new Date().toISOString().split('T')[0];
+  if (profile.periodLog.includes(entryDate)) return;
+  profile.periodLog.push(entryDate);
+  profile.periodLog.sort();
   saveProfile(profile);
 }

@@ -17,7 +17,7 @@ export function CalorieRing({ consumed, target, size = 196, stroke = 14 }: Calor
   const offset = circumference * (1 - pct);
   const over = consumed > target;
   const remaining = target - consumed;
-  const ringColor = over ? Colors.ember : Colors.forest;
+  const ringColor = over ? Colors.warn : Colors.forest;
 
   return (
     <View style={[styles.container, { width: size, height: size }]}>
@@ -48,7 +48,7 @@ export function CalorieRing({ consumed, target, size = 196, stroke = 14 }: Calor
       </Svg>
       <View style={styles.center}>
         <Text style={styles.label}>REMAINING</Text>
-        <Text style={[styles.number, over && { color: Colors.ember }]}>
+        <Text style={[styles.number, over && { color: Colors.warn }]}>
           {over ? '−' : ''}{Math.abs(remaining).toLocaleString()}
         </Text>
         <Text style={styles.sub}>

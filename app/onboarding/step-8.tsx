@@ -58,6 +58,7 @@ export default function Step8() {
       fiberTargetG: ob.fiberTargetG,
       firstName: ob.firstName || 'You',
       weightLog: [{ date: new Date().toISOString().split('T')[0], kg: ob.weightKg }],
+      periodLog: [],
     });
     router.replace('/(tabs)/');
   };

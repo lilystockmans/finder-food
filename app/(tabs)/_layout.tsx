@@ -10,8 +10,8 @@ function TabBar({ state, navigation }: any) {
   const { openEntry } = useAppStore();
   const routes = state.routes;
 
-  const icons = ['home', 'chart', null, 'bookmark', 'user'] as const;
-  const labels = ['Home', 'Progress', '', 'Saved', 'Profile'];
+  const icons = ['home', 'chart', null, 'user'] as const;
+  const labels = ['Home', 'Progress', '', 'Profile'];
 
   return (
     <View style={styles.bar}>
@@ -23,10 +23,7 @@ function TabBar({ state, navigation }: any) {
           return (
             <TouchableOpacity
               key="fab"
-              onPress={() => {
-                openEntry();
-                router.push('/meal-entry');
-              }}
+              onPress={() => { openEntry(); router.push('/meal-entry'); }}
               activeOpacity={0.85}
               style={styles.fab}
             >
@@ -71,7 +68,6 @@ export default function TabsLayout() {
       <Tabs.Screen name="index" />
       <Tabs.Screen name="progress" />
       <Tabs.Screen name="fab" options={{ href: null }} />
-      <Tabs.Screen name="saved" />
       <Tabs.Screen name="profile" />
     </Tabs>
   );
