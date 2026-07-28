@@ -18,6 +18,31 @@ export const Colors = {
   waterBlue: '#6db8d4',
 } as const;
 
+/**
+ * Chart series palette — a fixed categorical order, never cycled.
+ *
+ * These are NOT the Colors.macro* values. That set fails accessibility validation
+ * as a chart palette: macroFat/#f6ae2d sits outside the lightness band (L 0.80),
+ * macroCarbs and macroFiber fall under the chroma floor so they read as grey, and
+ * two of the four drop below 3:1 contrast on a white card. Fine as thin progress
+ * bars with adjacent text labels; not fine as adjacent fills a reader must tell
+ * apart.
+ *
+ * This set passes all five checks against a light surface — lightness band,
+ * chroma floor, CVD separation (worst adjacent ΔE 20.2 protan, target ≥ 8),
+ * normal-vision floor (25.3), and contrast. Verified with the dataviz
+ * validate_palette script; re-run it if any value changes.
+ */
+export const Series = {
+  protein: '#A6482F',
+  carbs: '#0076B3',
+  fat: '#B07D18',
+  fiber: '#6A4A93',
+} as const;
+
+/** Fixed assignment order. A 5th series folds into "Other" rather than inventing a hue. */
+export const SERIES_ORDER = ['protein', 'carbs', 'fat', 'fiber'] as const;
+
 export const Typography = {
   geist: 'Geist',
   geistMono: 'GeistMono',

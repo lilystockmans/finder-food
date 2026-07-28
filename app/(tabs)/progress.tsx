@@ -9,7 +9,6 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Line, Path, Circle, Rect, Text as SvgText } from 'react-native-svg';
 import { useFocusEffect } from 'expo-router';
 import { Card } from '../../components/Card';
 import { Pills } from '../../components/Pills';
@@ -20,14 +19,17 @@ import { Colors, Typography, Spacing } from '../../constants/tokens';
 import { loadProfile, appendWeightEntry, addPeriodEntry, type Profile } from '../../lib/profile';
 import { getMealsForDate, getAllMeals } from '../../lib/db';
 import { PlantCard } from '../../components/PlantCard';
-import { tallyPlants } from '../../lib/plants';
+import {
+  WeightChart, IntakeChart, MacroCompositionChart, PlantTrendChart,
+  type MacroDay,
+} from '../../components/Charts';
+import { tallyPlants, PLANT_TARGET } from '../../lib/plants';
 import { calcTrendWeight, calcMacroGrams } from '../../lib/nutrition';
 import { analyseWeek, getGeminiKey, geminiErrorMessage, type WeekAnalysis } from '../../lib/gemini';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CHART_WIDTH = SCREEN_WIDTH - Spacing.xl * 2 - 36; // card padding
 const CHART_HEIGHT = 140;
-const Y_AXIS_WIDTH = 34;
 
 function predictPeriod(periodLog: string[]): { avgCycleDays: number; nextDate: string; daysUntil: number } | null {
   if (periodLog.length < 2) return null;
@@ -104,6 +106,45 @@ export default function ProgressTab() {
       return meals.reduce((s, m) => s + m.totalKcal, 0);
     });
   }, [dates.join(',')]);
+
+  // Daily macro grams for the composition chart. Kept separate from intake
+  // because grams and kcal are different scales and a dual axis is never right.
+  const macroDays = useMemo<MacroDay[]>(() => {
+    return dates.map((date) => {
+      const meals = getMealsForDate(date);
+      return meals.reduce(
+        (a, m) => ({
+          protein: a.protein + m.totalProteinG,
+          carbs: a.carbs + m.totalCarbsG,
+          fat: a.fat + m.totalFatG,
+          fiber: a.fiber + m.totalFiberG,
+        }),
+        { protein: 0, carbs: 0, fat: 0, fiber: 0 }
+      );
+    });
+  }, [dates.join(',')]);
+
+  // Distinct plants in the rolling 7 days ending on each date in the range.
+  // One getAllMeals read, then tallied per date — cheap enough at this data size.
+  //
+  // null means "no meals logged anywhere in that 7-day window", which is not the
+  // same as zero plants. Without the distinction the chart draws a flat line
+  // along zero for every date before the first ever log, which reads as a real
+  // measurement rather than absence of data.
+  const plantTrend = useMemo(() => {
+    const all = getAllMeals();
+    const loggedDates = new Set(all.map((m) => m.date));
+    const windowHasData = (end: string) => {
+      const d = new Date(end + 'T12:00:00');
+      for (let i = 0; i < 7; i++) {
+        const x = new Date(d);
+        x.setDate(d.getDate() - i);
+        if (loggedDates.has(x.toISOString().split('T')[0])) return true;
+      }
+      return false;
+    };
+    return dates.map((d) => (windowHasData(d) ? tallyPlants(all, d, 7).count : null));
+  }, [dates.join(','), plantRefresh]);
 
   // Weight log entries for range
   const weightData = useMemo(() => {
@@ -271,20 +312,16 @@ export default function ProgressTab() {
                 <Text style={styles.logBtnText}>Log weight</Text>
               </TouchableOpacity>
             </View>
-            {validWeights.length < 2 ? (
-              <View style={styles.noData}>
-                <Text style={styles.noDataText}>Log weight entries to see your chart</Text>
-              </View>
-            ) : (
-              <WeightChart
-                dates={dates}
-                values={weightData}
-                goalKg={profile?.goalWeightKg}
-                trendValues={trendValues}
-                width={CHART_WIDTH}
-                height={CHART_HEIGHT}
-              />
-            )}
+            {/* Empty state lives inside the chart now, so there is one place
+                that decides what "no data" looks like. */}
+            <WeightChart
+              dates={dates}
+              values={weightData}
+              goalKg={profile?.goalWeightKg}
+              trendValues={trendValues}
+              width={CHART_WIDTH}
+              height={CHART_HEIGHT}
+            />
           </Card>
         )}
 
@@ -292,6 +329,7 @@ export default function ProgressTab() {
         {chartView === 'intake' && (
           <Card pad={18}>
             <Text style={styles.chartTitle}>Daily intake</Text>
+            <Text style={styles.chartHint}>Drag across the chart to read a day</Text>
             <IntakeChart
               dates={dates}
               values={intakeData}
@@ -302,6 +340,30 @@ export default function ProgressTab() {
             />
           </Card>
         )}
+
+        {/* Macro composition — separate chart, separate scale, never a dual axis */}
+        <Card pad={18}>
+          <Text style={styles.chartTitle}>Macros · {range}</Text>
+          <MacroCompositionChart
+            dates={dates}
+            days={macroDays}
+            width={CHART_WIDTH}
+            height={CHART_HEIGHT}
+          />
+        </Card>
+
+        {/* Plant diversity trend */}
+        <Card pad={18}>
+          <Text style={styles.chartTitle}>Plant variety · {range}</Text>
+          <Text style={styles.chartHint}>Distinct plants in the 7 days up to each date</Text>
+          <PlantTrendChart
+            dates={dates}
+            counts={plantTrend}
+            target={PLANT_TARGET}
+            width={CHART_WIDTH}
+            height={CHART_HEIGHT}
+          />
+        </Card>
 
         {/* Averages strip */}
         <Card pad={18}>
@@ -510,164 +572,6 @@ export default function ProgressTab() {
   );
 }
 
-function WeightChart({ dates, values, goalKg, trendValues, width, height }: {
-  dates: string[];
-  values: (number | null)[];
-  goalKg?: number;
-  trendValues?: (number | null)[];
-  width: number;
-  height: number;
-}) {
-  const nonNull = values.filter((v): v is number => v !== null);
-  if (nonNull.length === 0) return null;
-
-  const trendNonNull = trendValues?.filter((v): v is number => v !== null) ?? [];
-  const allVals = [...nonNull, ...trendNonNull, goalKg].filter((v): v is number => v !== undefined);
-
-  const minV = Math.min(...allVals) - 1;
-  const maxV = Math.max(...allVals) + 1;
-  const midV = (minV + maxV) / 2;
-  const range = maxV - minV || 1;
-  const n = dates.length;
-  const plotWidth = width - Y_AXIS_WIDTH;
-  const xStep = plotWidth / (n - 1 || 1);
-
-  const toX = (i: number) => Y_AXIS_WIDTH + i * xStep;
-  const toY = (v: number) => height - ((v - minV) / range) * height;
-
-  let path = '';
-  let lastIdx = -1;
-  values.forEach((v, i) => {
-    if (v === null) return;
-    if (lastIdx < 0) { path += `M${toX(i)},${toY(v)}`; }
-    else { path += ` L${toX(i)},${toY(v)}`; }
-    lastIdx = i;
-  });
-
-  let trendPath = '';
-  let tLastIdx = -1;
-  trendValues?.forEach((v, i) => {
-    if (v === null) return;
-    if (tLastIdx < 0) { trendPath += `M${toX(i)},${toY(v)}`; }
-    else { trendPath += ` L${toX(i)},${toY(v)}`; }
-    tLastIdx = i;
-  });
-
-  const goalY = goalKg ? toY(goalKg) : null;
-  const showTrend = trendValues && trendNonNull.length >= 5;
-
-  return (
-    <View>
-      <Svg width={width} height={height + 20}>
-        {/* Y axis gridlines + labels */}
-        {[maxV, midV, minV].map((v, i) => (
-          <React.Fragment key={i}>
-            <Line x1={Y_AXIS_WIDTH} y1={toY(v)} x2={width} y2={toY(v)} stroke={Colors.line} strokeWidth={1} />
-            <SvgText x={Y_AXIS_WIDTH - 6} y={toY(v) + 3} fontSize={9} fontFamily={Typography.geistMono} fill={Colors.muted} textAnchor="end">
-              {v.toFixed(1)}
-            </SvgText>
-          </React.Fragment>
-        ))}
-        {/* Goal line */}
-        {goalY != null && (
-          <Line x1={Y_AXIS_WIDTH} y1={goalY} x2={width} y2={goalY} stroke={Colors.muted} strokeWidth={1} strokeDasharray="4 3" />
-        )}
-        {/* Trend line (behind actual) */}
-        {showTrend && trendPath && (
-          <Path d={trendPath} stroke={Colors.macroCarbs} strokeWidth={1.5} fill="none" strokeDasharray="6 3" strokeLinecap="round" />
-        )}
-        {/* Actual weight line */}
-        {path && <Path d={path} stroke={Colors.forest} strokeWidth={2} fill="none" strokeLinejoin="round" strokeLinecap="round" />}
-        {/* Data points */}
-        {values.map((v, i) =>
-          v != null ? <Circle key={i} cx={toX(i)} cy={toY(v)} r={4} fill={Colors.forest} /> : null
-        )}
-        <SvgText x={Y_AXIS_WIDTH} y={height + 16} fontSize={10} fontFamily={Typography.geistMono} fill={Colors.muted}>
-          {dates[0]?.slice(5)}
-        </SvgText>
-        <SvgText x={width} y={height + 16} fontSize={10} fontFamily={Typography.geistMono} fill={Colors.muted} textAnchor="end">
-          {dates.at(-1)?.slice(5)}
-        </SvgText>
-      </Svg>
-      {/* Legend */}
-      {showTrend && (
-        <View style={styles.chartLegend}>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendLine, { backgroundColor: Colors.forest }]} />
-            <Text style={styles.legendLabel}>Actual</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDash, { backgroundColor: Colors.macroCarbs }]} />
-            <Text style={styles.legendLabel}>Trend</Text>
-          </View>
-        </View>
-      )}
-    </View>
-  );
-}
-
-function IntakeChart({ dates, values, target, width, height, preperiodDates }: {
-  dates: string[]; values: number[]; target: number; width: number; height: number;
-  preperiodDates?: Set<string>;
-}) {
-  const maxV = Math.max(...values, target) * 1.1 || target * 1.1;
-  const n = dates.length;
-  const plotWidth = width - Y_AXIS_WIDTH;
-  const barW = Math.max(4, (plotWidth / n) - 3);
-  const toY = (v: number) => height - (v / maxV) * height;
-  const targetY = toY(target);
-
-  return (
-    <Svg width={width} height={height + 20}>
-      {/* Y axis gridlines + labels */}
-      {[maxV, maxV / 2, 0].map((v, i) => (
-        <React.Fragment key={i}>
-          <Line x1={Y_AXIS_WIDTH} y1={toY(v)} x2={width} y2={toY(v)} stroke={Colors.line} strokeWidth={1} />
-          <SvgText x={Y_AXIS_WIDTH - 6} y={toY(v) + 3} fontSize={9} fontFamily={Typography.geistMono} fill={Colors.muted} textAnchor="end">
-            {Math.round(v)}
-          </SvgText>
-        </React.Fragment>
-      ))}
-      {/* Pre-period shading */}
-      {preperiodDates && values.map((_, i) => {
-        if (!preperiodDates.has(dates[i])) return null;
-        const x = Y_AXIS_WIDTH + (i / n) * plotWidth;
-        return <Rect key={`pre-${i}`} x={x} y={0} width={plotWidth / n} height={height} fill={Colors.amber} opacity={0.12} />;
-      })}
-      {/* Bars */}
-      {values.map((v, i) => {
-        if (v === 0) return null;
-        const x = Y_AXIS_WIDTH + (i / n) * plotWidth + (plotWidth / n - barW) / 2;
-        const barH = (v / maxV) * height;
-        const barY = height - barH;
-        return (
-          <Rect
-            key={i}
-            x={x} y={barY}
-            width={barW} height={barH}
-            fill={v > target ? Colors.warn : Colors.forest}
-            rx={2}
-          />
-        );
-      })}
-      {/* Target line */}
-      <Line
-        x1={Y_AXIS_WIDTH} y1={targetY} x2={width} y2={targetY}
-        stroke={Colors.amber} strokeWidth={1.5} strokeDasharray="4 3"
-      />
-      <SvgText x={width} y={targetY - 4} fontSize={9} fontFamily={Typography.geistMono} fill={Colors.amber} textAnchor="end">
-        target {Math.round(target)}
-      </SvgText>
-      {/* X axis labels */}
-      <SvgText x={Y_AXIS_WIDTH} y={height + 16} fontSize={10} fontFamily={Typography.geistMono} fill={Colors.muted}>
-        {dates[0]?.slice(5)}
-      </SvgText>
-      <SvgText x={width} y={height + 16} fontSize={10} fontFamily={Typography.geistMono} fill={Colors.muted} textAnchor="end">
-        {dates.at(-1)?.slice(5)}
-      </SvgText>
-    </Svg>
-  );
-}
 
 function AvgStat({ label, value, suffix = '', signed }: {
   label: string; value: number; suffix?: string; signed?: boolean;
@@ -707,10 +611,9 @@ const styles = StyleSheet.create({
   summaryDelta: { fontFamily: Typography.geistMono, fontSize: 12 },
   chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   chartTitle: { fontFamily: Typography.geist, fontSize: 15, fontWeight: '500', color: Colors.forest, marginBottom: 12 },
+  chartHint: { fontFamily: Typography.geist, fontSize: 11, color: Colors.muted, marginTop: -6, marginBottom: 10 },
   logBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   logBtnText: { fontFamily: Typography.geist, fontSize: 12, color: Colors.forest },
-  noData: { height: CHART_HEIGHT, alignItems: 'center', justifyContent: 'center' },
-  noDataText: { fontFamily: Typography.geist, fontSize: 13, color: Colors.muted },
   avgRow: { flexDirection: 'row', justifyContent: 'space-around' },
   avgStat: { alignItems: 'center', gap: 4 },
   avgValue: { fontFamily: Typography.geistMono, fontSize: 20, fontWeight: '500', color: Colors.forest },
