@@ -63,10 +63,19 @@ function fail(kind: GeminiErrorKind, status?: number): never {
   throw err;
 }
 
-/** Kinds where retrying could plausibly succeed. */
+/**
+ * Kinds where retrying could plausibly succeed AND is worth a request.
+ *
+ * The free tier allows only 20 generateContent requests per day per model, so a
+ * retry is expensive. TRUNCATED is deliberately excluded: the extractor already
+ * salvages a partial ingredient list, and a retry would very likely truncate
+ * again at the same ceiling for double the quota. PARSE is excluded for the same
+ * reason — a deterministic prompt that produced unparseable output once tends to
+ * do it again.
+ */
 function isRetryable(err: any): boolean {
   const kind = err?.kind as GeminiErrorKind;
-  return kind === 'PARSE' || kind === 'TRUNCATED' || kind === 'NETWORK' ||
+  return kind === 'NETWORK' ||
     (kind === 'HTTP' && typeof err?.status === 'number' && err.status >= 500);
 }
 
