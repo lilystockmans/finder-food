@@ -477,7 +477,7 @@ const macroRow = StyleSheet.create({
   label: { fontFamily: Typography.geist, fontSize: 14, color: Colors.forest, flex: 1 },
   grams: { fontFamily: Typography.geistMono, fontSize: 12, color: Colors.muted },
   pct: { fontFamily: Typography.geistMono, fontSize: 14, fontWeight: '600', color: Colors.forest, width: 40, textAlign: 'right' },
-  track: { height: 8, borderRadius: 4, backgroundColor: Colors.sage, overflow: 'hidden' },
+  track: { height: 8, borderRadius: 4, backgroundColor: Colors.track, overflow: 'hidden' },
   fill: { height: 8, borderRadius: 4 },
   btns: { flexDirection: 'row', gap: 12 },
   btn: { paddingVertical: 4 },

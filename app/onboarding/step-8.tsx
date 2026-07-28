@@ -139,12 +139,6 @@ function MacroSlider({ label, value, onChange, color, grams }: {
   );
 }
 
-const Colors2 = {
-  macroProtein: '#464e47',
-  macroCarbs: '#f6ae2d',
-  macroFat: '#ff4a1c',
-};
-
 import { Colors as TokenColors } from '../../constants/tokens';
 
 const styles = StyleSheet.create({

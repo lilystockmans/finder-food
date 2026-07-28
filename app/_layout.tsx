@@ -9,13 +9,22 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
-    Geist: require('../assets/fonts/Geist-Regular.ttf'),
-    'Geist-Medium': require('../assets/fonts/Geist-Medium.ttf'),
-    'Geist-SemiBold': require('../assets/fonts/Geist-SemiBold.ttf'),
-    'Geist-Bold': require('../assets/fonts/Geist-Bold.ttf'),
+    // Bricolage Grotesque, instantiated from the variable font at fixed optical
+    // sizes: opsz 14 for running text, opsz 96 for display. React Native cannot
+    // drive variable axes from StyleSheet, so statics are required.
+    //
+    // The Display and weighted faces have TABULAR figures frozen into their cmap.
+    // Bricolage's default figures vary in width by up to 2.27x, which makes any
+    // changing number jump sideways, and Android does not reliably honour an
+    // OpenType `tnum` request from RN.
+    Bricolage: require('../assets/fonts/Bricolage-Regular.ttf'),
+    'Bricolage-Medium': require('../assets/fonts/Bricolage-Medium.ttf'),
+    'Bricolage-SemiBold': require('../assets/fonts/Bricolage-SemiBold.ttf'),
+    BricolageDisplay: require('../assets/fonts/Bricolage-Display.ttf'),
+    'BricolageDisplay-Bold': require('../assets/fonts/Bricolage-DisplayBold.ttf'),
+
     GeistMono: require('../assets/fonts/GeistMono-Regular.ttf'),
     'GeistMono-Medium': require('../assets/fonts/GeistMono-Medium.ttf'),
-    InstrumentSerif: require('../assets/fonts/InstrumentSerif-Italic.ttf'),
   });
 
   useEffect(() => {

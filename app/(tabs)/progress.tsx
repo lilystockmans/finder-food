@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
-import { Card } from '../../components/Card';
+import { Card, CARD_PAD } from '../../components/Card';
 import { Pills } from '../../components/Pills';
 import { BottomSheet } from '../../components/BottomSheet';
 import { Btn } from '../../components/Btn';
@@ -28,7 +28,7 @@ import { calcTrendWeight, calcMacroGrams } from '../../lib/nutrition';
 import { analyseWeek, getGeminiKey, geminiErrorMessage, type WeekAnalysis } from '../../lib/gemini';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const CHART_WIDTH = SCREEN_WIDTH - Spacing.xl * 2 - 36; // card padding
+const CHART_WIDTH = SCREEN_WIDTH - Spacing.xl * 2 - CARD_PAD * 2;
 const CHART_HEIGHT = 140;
 
 function predictPeriod(periodLog: string[]): { avgCycleDays: number; nextDate: string; daysUntil: number } | null {
@@ -366,7 +366,7 @@ export default function ProgressTab() {
 
         {/* Weight chart */}
         {chartView === 'weight' && (
-          <Card pad={18}>
+          <Card>
             <View style={styles.chartHeader}>
               <Text style={styles.chartTitle}>Weight</Text>
               <TouchableOpacity onPress={() => setLogWeightSheet(true)} style={styles.logBtn}>
@@ -389,7 +389,7 @@ export default function ProgressTab() {
 
         {/* Intake chart */}
         {chartView === 'intake' && (
-          <Card pad={18}>
+          <Card>
             <Text style={styles.chartTitle}>Daily intake</Text>
             <Text style={styles.chartHint}>Drag across the chart to read a day</Text>
             <IntakeChart
@@ -404,7 +404,7 @@ export default function ProgressTab() {
         )}
 
         {/* Macro composition — separate chart, separate scale, never a dual axis */}
-        <Card pad={18}>
+        <Card>
           <Text style={styles.chartTitle}>Macros · {range}</Text>
           <MacroCompositionChart
             dates={dates}
@@ -415,7 +415,7 @@ export default function ProgressTab() {
         </Card>
 
         {/* Plant diversity trend */}
-        <Card pad={18}>
+        <Card>
           <Text style={styles.chartTitle}>Plant variety · {range}</Text>
           <Text style={styles.chartHint}>Distinct plants in the 7 days up to each date</Text>
           <PlantTrendChart
@@ -428,7 +428,7 @@ export default function ProgressTab() {
         </Card>
 
         {/* Averages strip */}
-        <Card pad={18}>
+        <Card>
           <Text style={styles.chartTitle}>Averages · {range}</Text>
           <View style={styles.avgRow}>
             <AvgStat label="Avg kcal" value={Math.round(avgKcal)} />
@@ -439,7 +439,7 @@ export default function ProgressTab() {
 
         {/* Goal projection */}
         {profile && profile.goalType !== 'maintain' && (
-          <Card pad={18}>
+          <Card>
             <Text style={styles.chartTitle}>Goal projection</Text>
             {projectedDate ? (
               <Text style={styles.projText}>
@@ -458,7 +458,7 @@ export default function ProgressTab() {
         )}
 
         {/* Period tracking */}
-        <Card pad={18}>
+        <Card>
           <View style={styles.chartHeader}>
             <Text style={styles.chartTitle}>Period</Text>
             <TouchableOpacity
@@ -501,7 +501,7 @@ export default function ProgressTab() {
 
         {/* Weekly analysis */}
         {weekStats && (
-          <Card pad={18}>
+          <Card>
             <Text style={styles.chartTitle}>
               {isCurrentPeriod ? 'This week' : `Week to ${formatDay(weekDates[weekDates.length - 1])}`}
             </Text>
@@ -693,7 +693,7 @@ const styles = StyleSheet.create({
   avgValue: { fontFamily: Typography.geistMono, fontSize: 20, fontWeight: '500', color: Colors.forest },
   avgLabel: { fontFamily: Typography.geist, fontSize: 11, color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.8 },
   projText: { fontFamily: Typography.geist, fontSize: 15, color: Colors.forest, lineHeight: 22 },
-  projAccent: { fontFamily: Typography.instrumentSerif, fontStyle: 'italic', fontSize: 17 },
+  projAccent: { fontFamily: Typography.displayBold, fontSize: 17 },
   chartLegend: { flexDirection: 'row', gap: 16, marginTop: 8 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendLine: { width: 16, height: 2, borderRadius: 1 },

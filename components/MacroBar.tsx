@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Colors, Typography } from '../constants/tokens';
+import { Colors, Typography, MIN_FONT_SIZE } from '../constants/tokens';
 
 interface MacroBarProps {
   label: string;
@@ -40,34 +40,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   label: {
-    fontFamily: Typography.geist,
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
+    // Sentence case, not uppercase-tracked: the mockup reads calmer and the
+    // grotesque has enough character to carry a plain label.
+    fontFamily: Typography.sansMedium,
+    fontSize: 13,
+    color: Colors.forest,
   },
   value: {
-    fontFamily: Typography.geistMono,
-    fontSize: 12,
+    fontFamily: Typography.sansMedium,
+    fontSize: 13,
+    color: Colors.forest,
   },
-  val: {
-    fontWeight: '600',
-  },
+  val: {},
   sep: {
     color: Colors.muted,
   },
   target: {
+    fontFamily: Typography.mono,
+    fontSize: MIN_FONT_SIZE,
     color: Colors.muted,
   },
   track: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.sage,
+    // 4px on a visible rail. The previous 6px on Colors.sage worked when sage was
+    // a distinct pale green; sage is now the page background, so on a white card
+    // it would have been invisible.
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.track,
     overflow: 'hidden',
   },
   fill: {
-    height: 6,
-    borderRadius: 3,
+    height: 4,
+    borderRadius: 2,
   },
 });

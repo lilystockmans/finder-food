@@ -228,7 +228,7 @@ export default function Dashboard() {
         </View>
 
         {/* Hero card */}
-        <Card pad={22} style={styles.heroCard}>
+        <Card style={styles.heroCard}>
           <CalorieRing
             consumed={Math.round(totals.kcal)}
             target={profile?.kcalTarget ?? 2000}
@@ -311,7 +311,7 @@ export default function Dashboard() {
                       onPress={() => setEditMeal(meal)}
                       activeOpacity={0.85}
                     >
-                      <Card pad={14} style={styles.mealRow}>
+                      <Card style={styles.mealRow}>
                         <View style={styles.mealLeft}>
                           <Text style={styles.mealName} numberOfLines={1}>
                             {meal.mealName || meal.ingredients[0]?.name || 'Meal'}
@@ -635,7 +635,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   greetName: {
-    fontFamily: Typography.instrumentSerif,
+    fontFamily: Typography.displayBold,
     fontStyle: 'italic',
     fontSize: 26,
   },

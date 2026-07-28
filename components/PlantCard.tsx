@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Card } from './Card';
-import { Colors, Typography, Spacing, Radius } from '../constants/tokens';
+import { Colors, Typography, Spacing, Radius, MIN_FONT_SIZE } from '../constants/tokens';
 import { getPlant, type PlantTally, type PlantCategory } from '../lib/plants';
 
 const CATEGORY_LABEL: Record<PlantCategory, string> = {
@@ -48,7 +48,7 @@ export function PlantCard({ tally, compact = false }: { tally: PlantTally; compa
     .map((id) => getPlant(id)?.label ?? id);
 
   return (
-    <Card pad={18}>
+    <Card>
       <View style={styles.header}>
         <Text style={styles.label}>PLANTS THIS WEEK</Text>
         <Text style={styles.count}>
@@ -123,27 +123,26 @@ const DOT = 9;
 const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 14,
   },
   label: {
-    fontFamily: Typography.geist,
-    fontSize: 11,
-    fontWeight: '600',
+    fontFamily: Typography.mono,
+    fontSize: MIN_FONT_SIZE,
     color: Colors.muted,
-    letterSpacing: 1.4,
+    letterSpacing: 1.3,
   },
   count: {
-    fontFamily: Typography.geistMono,
-    fontSize: 26,
-    fontWeight: '500',
+    // Display face for tabular figures — the count changes as meals are logged.
+    fontFamily: Typography.display,
+    fontSize: 42,
+    letterSpacing: -1.2,
     color: Colors.forest,
   },
   countTarget: {
-    fontFamily: Typography.geistMono,
-    fontSize: 14,
-    fontWeight: '400',
+    fontFamily: Typography.mono,
+    fontSize: 13,
     color: Colors.muted,
   },
   dotGrid: {
@@ -156,11 +155,11 @@ const styles = StyleSheet.create({
     height: DOT,
     borderRadius: DOT / 2,
   },
-  dotFilled: { backgroundColor: Colors.forest },
-  dotEmpty: { backgroundColor: Colors.sage },
+  dotFilled: { backgroundColor: Colors.support },
+  dotEmpty: { backgroundColor: Colors.track },
   extraNote: {
-    fontFamily: Typography.geistMono,
-    fontSize: 10,
+    fontFamily: Typography.mono,
+    fontSize: MIN_FONT_SIZE,
     color: Colors.ember,
     marginTop: 6,
   },
@@ -172,7 +171,7 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
   namesInline: {
-    fontFamily: Typography.geist,
+    fontFamily: Typography.sans,
     fontSize: 12,
     color: Colors.muted,
     marginTop: 12,
@@ -192,8 +191,8 @@ const styles = StyleSheet.create({
     color: Colors.forest,
   },
   catCount: {
-    fontFamily: Typography.geistMono,
-    fontSize: 12,
+    fontFamily: Typography.mono,
+    fontSize: MIN_FONT_SIZE,
     color: Colors.muted,
   },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
@@ -201,7 +200,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 9,
     paddingVertical: 4,
     borderRadius: Radius.pill,
-    backgroundColor: Colors.sage,
+    backgroundColor: Colors.paper,
   },
   chipNew: { backgroundColor: Colors.ember + '20' },
   chipText: {
@@ -211,17 +210,16 @@ const styles = StyleSheet.create({
   },
   chipTextNew: { color: Colors.ember, fontWeight: '600' },
   newNote: {
-    fontFamily: Typography.geist,
-    fontSize: 11,
+    fontFamily: Typography.sans,
+    fontSize: MIN_FONT_SIZE,
     color: Colors.muted,
     fontStyle: 'italic',
   },
   caveat: {
-    fontFamily: Typography.geist,
-    fontSize: 10,
+    fontFamily: Typography.sans,
+    fontSize: MIN_FONT_SIZE,
     color: Colors.muted,
     marginTop: 14,
-    lineHeight: 15,
-    opacity: 0.85,
+    lineHeight: 16,
   },
 });
