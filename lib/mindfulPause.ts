@@ -25,8 +25,22 @@
 
 /** Below this, the entries belong to one sitting. */
 export const PAUSE_MIN_GAP_MS = 25 * 60 * 1000;
-/** Above this, it is a separate eating occasion, not a second helping. */
-export const PAUSE_MAX_GAP_MS = 3 * 60 * 60 * 1000;
+/**
+ * Above this it is a separate eating occasion, not a second helping.
+ *
+ * Replaying real history at a 3-hour ceiling fired on a 174-minute and a
+ * 166-minute breakfast gap, both of which are plainly brunch rather than going
+ * back for more. 2 hours matches what "second helping" actually means.
+ */
+export const PAUSE_MAX_GAP_MS = 2 * 60 * 60 * 1000;
+/**
+ * A real portion has to already be logged in the slot.
+ *
+ * Without this the replay fired on a 23 kcal and a 28 kcal prior entry — logging
+ * a coffee and then eating breakfast. That is a first meal, not a second helping,
+ * and prompting there teaches the user the question is noise.
+ */
+export const PAUSE_MIN_SLOT_KCAL = 150;
 /** Seconds the primary action waits, so the question gets a moment's thought. */
 export const PAUSE_SECONDS = 10;
 
@@ -36,7 +50,8 @@ export type PauseSkipReason =
   | 'not-today'
   | 'first-in-slot'
   | 'same-sitting'
-  | 'separate-occasion';
+  | 'separate-occasion'
+  | 'nothing-substantial-yet';
 
 export type PauseDecision =
   | { show: false; reason: PauseSkipReason }
@@ -69,11 +84,12 @@ export function shouldPause(opts: {
   if (gap < PAUSE_MIN_GAP_MS) return { show: false, reason: 'same-sitting' };
   if (gap > PAUSE_MAX_GAP_MS) return { show: false, reason: 'separate-occasion' };
 
-  return {
-    show: true,
-    gapMinutes: Math.round(gap / 60000),
-    slotKcalSoFar: Math.round(slotEntries.reduce((s, e) => s + e.totalKcal, 0)),
-  };
+  const slotKcalSoFar = Math.round(slotEntries.reduce((s, e) => s + e.totalKcal, 0));
+  if (slotKcalSoFar < PAUSE_MIN_SLOT_KCAL) {
+    return { show: false, reason: 'nothing-substantial-yet' };
+  }
+
+  return { show: true, gapMinutes: Math.round(gap / 60000), slotKcalSoFar };
 }
 
 /** kv key for the once-per-slot-per-day cap. */

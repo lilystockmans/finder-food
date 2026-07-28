@@ -20,6 +20,10 @@ import { BarcodeScanner } from '../components/BarcodeScanner';
 import { PhotoCapture } from '../components/PhotoCapture';
 import { Colors, Typography, Spacing, Radius } from '../constants/tokens';
 import { useAppStore } from '../store';
+import { loadProfile, getKv, setKv } from '../lib/profile';
+import { shouldPause, pauseShownKey } from '../lib/mindfulPause';
+import { MindfulPause } from '../components/MindfulPause';
+import { BottomSheet } from '../components/BottomSheet';
 import {
   searchFood,
   lookupBarcode,
@@ -96,6 +100,12 @@ export default function MealEntry() {
 
   // Editing state is global, so it must be cleared however the screen is left.
   useEffect(() => () => setEditingMeal(null), []);
+
+  /** Set when a save is held pending the body-check. */
+  const [pause, setPause] = useState<{
+    gapMinutes: number; slotKcalSoFar: number;
+    list: Ingredient[]; nameOverride?: string;
+  } | null>(null);
 
   const [editCorrection, setEditCorrection] = useState('');
   const [editCorrecting, setEditCorrecting] = useState(false);
@@ -279,8 +289,38 @@ export default function MealEntry() {
     { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 }
   );
 
+  /**
+   * Gate the save behind a body-check when this looks like a second helping.
+   * Returns true when the pause was shown, meaning the save is deferred until
+   * the user confirms. Never rejects a save outright.
+   */
+  const maybePause = (list: Ingredient[], nameOverride?: string): boolean => {
+    if (editingMeal) return false;  // revising an entry is not eating again
+    const profile = loadProfile();
+    const slotEntries = getMealsForDate(viewDate)
+      .filter((m) => m.slot === slot)
+      .map((m) => ({ timestampMs: m.timestampMs, totalKcal: m.totalKcal }));
+
+    const decision = shouldPause({
+      enabled: profile?.mindfulPauseEnabled ?? true,
+      alreadyShown: getKv(pauseShownKey(viewDate, slot)) === '1',
+      isToday,
+      slotEntries,
+      nowMs: Date.now(),
+    });
+    if (!decision.show) return false;
+
+    setPause({ ...decision, list, nameOverride });
+    return true;
+  };
+
   const saveIngredients = (list: Ingredient[], nameOverride?: string) => {
     if (list.length === 0) return;
+    if (maybePause(list, nameOverride)) return;
+    commitSave(list, nameOverride);
+  };
+
+  const commitSave = (list: Ingredient[], nameOverride?: string) => {
     const t = totalsOf(list);
     const finalName = nameOverride ?? mealName.trim();
 
@@ -758,6 +798,30 @@ export default function MealEntry() {
           </View>
         </KeyboardAvoidingView>
       )}
+
+      {/* Body-check before a likely second helping. Dismissing keeps the entry
+          on screen, so nothing is lost either way. */}
+      <BottomSheet visible={pause !== null} onClose={() => setPause(null)}>
+        {pause && (
+          <MindfulPause
+            gapMinutes={pause.gapMinutes}
+            slotKcalSoFar={pause.slotKcalSoFar}
+            slot={slot}
+            onLog={() => {
+              // Cap at one prompt per slot per day, recorded only once the
+              // question has actually been answered.
+              setKv(pauseShownKey(viewDate, slot), '1');
+              const { list, nameOverride } = pause;
+              setPause(null);
+              commitSave(list, nameOverride);
+            }}
+            onWait={() => {
+              setKv(pauseShownKey(viewDate, slot), '1');
+              setPause(null);
+            }}
+          />
+        )}
+      </BottomSheet>
 
     </SafeAreaView>
   );

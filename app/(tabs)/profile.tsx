@@ -128,7 +128,18 @@ export default function ProfileTab() {
             value={profile.units === 'metric' ? 'Metric' : 'Imperial'}
             onPress={() => setSheet('settings')}
           />
+          {/* Tapping toggles directly — a whole sheet for one boolean is overkill. */}
+          <SettingsRow
+            label="Second-helping check-in"
+            value={profile.mindfulPauseEnabled ? 'On' : 'Off'}
+            onPress={() => save({ mindfulPauseEnabled: !profile.mindfulPauseEnabled })}
+          />
         </View>
+        <Text style={styles.settingNote}>
+          When you log more food in the same slot within a couple of hours, the app
+          asks whether you are still hungry. It never stops you logging, and it
+          never comments on what you ate.
+        </Text>
 
         <TouchableOpacity onPress={handleExportData} style={styles.exportBtn}>
           <Text style={styles.exportText}>Export My Data</Text>
@@ -368,6 +379,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.line,
     overflow: 'hidden',
+  },
+  settingNote: {
+    fontFamily: Typography.geist,
+    fontSize: 11,
+    color: Colors.muted,
+    lineHeight: 17,
+    paddingHorizontal: 4,
+    marginTop: 8,
   },
   exportBtn: {
     paddingVertical: 16,

@@ -21,6 +21,8 @@ export type Profile = {
   firstName: string;
   weightLog: WeightEntry[];
   periodLog: string[];
+  /** Body-check prompt before a likely second helping. On by default. */
+  mindfulPauseEnabled: boolean;
 };
 
 const KEY = 'ff:profile';
@@ -42,7 +44,7 @@ export function loadProfile(): Profile | null {
     const row = db.getFirstSync<{ value: string }>('SELECT value FROM kv_store WHERE key = ?', [KEY]);
     if (!row) return null;
     const profile = JSON.parse(row.value);
-    return { periodLog: [], ...profile };
+    return { periodLog: [], mindfulPauseEnabled: true, ...profile };
   } catch {
     return null;
   }

@@ -59,6 +59,7 @@ export default function Step8() {
       firstName: ob.firstName || 'You',
       weightLog: [{ date: new Date().toISOString().split('T')[0], kg: ob.weightKg }],
       periodLog: [],
+      mindfulPauseEnabled: true,
     });
     router.replace('/(tabs)/');
   };
