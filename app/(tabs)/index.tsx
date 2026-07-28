@@ -12,15 +12,17 @@ import { useFocusEffect, router } from 'expo-router';
 import { CalorieRing } from '../../components/CalorieRing';
 import { MacroBar } from '../../components/MacroBar';
 import { Card } from '../../components/Card';
+import { PlantCard } from '../../components/PlantCard';
 import { BottomSheet } from '../../components/BottomSheet';
 import { Btn } from '../../components/Btn';
 import { Icon } from '../../components/Icon';
 import { Colors, Typography, Spacing } from '../../constants/tokens';
 import {
   getMealsForDate, insertMeal, deleteMeal, updateMealSlot, updateMealServing,
-  getLoggingStreak, getRecentMeals,
+  getLoggingStreak, getRecentMeals, getAllMeals,
   type MealEntry, type Ingredient, type RecentMeal,
 } from '../../lib/db';
+import { tallyPlants, type PlantTally } from '../../lib/plants';
 import { loadProfile, saveProfile, getKv, setKv, type Profile } from '../../lib/profile';
 import { calcMacroGrams, calcWeeklyAdaptation, type AdaptationResult } from '../../lib/nutrition';
 import { useAppStore } from '../../store';
@@ -53,6 +55,7 @@ export default function Dashboard() {
   const [reLogMeal, setReLogMeal] = useState<{ meal: RecentMeal; slot: Slot } | null>(null);
   const [reLogMultiplier, setReLogMultiplier] = useState(1);
   const [reLogCustom, setReLogCustom] = useState('');
+  const [plantTally, setPlantTally] = useState<PlantTally | null>(null);
   const { openEntry, viewDate, setViewDate, mealsRefreshKey, refreshMeals } = useAppStore();
 
   const today = new Date().toISOString().split('T')[0];
@@ -64,6 +67,9 @@ export default function Dashboard() {
     if (p) {
       setMeals(getMealsForDate(viewDate));
       setRecentMeals(getRecentMeals(7, 6));
+      // Plant diversity needs a 7-day window, not just viewDate. Derived on read
+      // from meal_entries, so there is nothing extra stored and history counts.
+      setPlantTally(tallyPlants(getAllMeals(), viewDate, 7));
     }
     if (isToday) {
       setStreak(getLoggingStreak());
@@ -234,6 +240,9 @@ export default function Dashboard() {
             <MacroBar label="Fiber" value={Math.round(totals.fiber)} target={profile?.fiberTargetG ?? 30} color={Colors.macroFiber} />
           </View>
         </Card>
+
+        {/* Plant diversity — rolling 7 days ending on the viewed date */}
+        {plantTally && <PlantCard tally={plantTally} compact />}
 
         {/* Weekly adaptation card */}
         {isToday && showAdaptCard && adaptResult && adaptResult.suggestion !== null && (

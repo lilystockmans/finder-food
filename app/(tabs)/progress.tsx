@@ -18,7 +18,9 @@ import { Btn } from '../../components/Btn';
 import { Icon } from '../../components/Icon';
 import { Colors, Typography, Spacing } from '../../constants/tokens';
 import { loadProfile, appendWeightEntry, addPeriodEntry, type Profile } from '../../lib/profile';
-import { getMealsForDate } from '../../lib/db';
+import { getMealsForDate, getAllMeals } from '../../lib/db';
+import { PlantCard } from '../../components/PlantCard';
+import { tallyPlants } from '../../lib/plants';
 import { calcTrendWeight, calcMacroGrams } from '../../lib/nutrition';
 import { analyseWeek, getGeminiKey, geminiErrorMessage, type WeekAnalysis } from '../../lib/gemini';
 
@@ -76,12 +78,21 @@ export default function ProgressTab() {
   const [weekAnalysis, setWeekAnalysis] = useState<WeekAnalysis | null>(null);
   const [weekAnalysisLoading, setWeekAnalysisLoading] = useState(false);
   const [weekAnalysisError, setWeekAnalysisError] = useState('');
+  const [plantRefresh, setPlantRefresh] = useState(0);
 
   useFocusEffect(useCallback(() => {
     const p = loadProfile();
     setProfile(p);
     if (p) { setWeightDraft(p.weightKg); setWeightInput(String(p.weightKg)); }
+    setPlantRefresh((n) => n + 1);
   }, []));
+
+  // Rolling 7 days ending today, regardless of the chart range selector — the
+  // 30-plants target is a weekly behaviour and does not rescale to 30/90 days.
+  const plantTally = useMemo(
+    () => tallyPlants(getAllMeals(), new Date().toISOString().split('T')[0], 7),
+    [plantRefresh]
+  );
 
   const days = range === '7 days' ? 7 : range === '30 days' ? 30 : 90;
   const dates = dateRange(days);
@@ -360,6 +371,9 @@ export default function ProgressTab() {
             </Text>
           )}
         </Card>
+
+        {/* Plant diversity — full breakdown by category */}
+        <PlantCard tally={plantTally} />
 
         {/* Weekly analysis */}
         {weekStats && (
