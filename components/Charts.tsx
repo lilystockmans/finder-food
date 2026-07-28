@@ -226,18 +226,6 @@ export function WeightChart({ dates, values, goalKg, trendValues, width, height 
 
 // ------------------------------------------------------------------- bar chart
 
-/** Centred rolling mean. Window shrinks at the edges rather than returning null. */
-export function rollingMean(values: number[], window: number): (number | null)[] {
-  const half = Math.floor(window / 2);
-  return values.map((_, i) => {
-    const lo = Math.max(0, i - half);
-    const hi = Math.min(values.length - 1, i + half);
-    let sum = 0, count = 0;
-    for (let j = lo; j <= hi; j++) if (values[j] > 0) { sum += values[j]; count++; }
-    return count === 0 ? null : sum / count;
-  });
-}
-
 export function IntakeChart({ dates, values, target, width, height, preperiodDates, bandPct = 0.1 }: {
   dates: string[]; values: number[]; target: number; width: number; height: number;
   preperiodDates?: Set<string>;
@@ -249,26 +237,30 @@ export function IntakeChart({ dates, values, target, width, height, preperiodDat
   const { index, responder } = useScrub(n, Y_AXIS_WIDTH, plotWidth);
   const logged = values.filter((v) => v > 0);
 
-  const avg = useMemo(() => rollingMean(values, 7), [values.join(',')]);
+  // Average across LOGGED days only. Including unlogged zeros would drag the
+  // figure down and misreport what was actually eaten.
+  const windowAvg = useMemo(
+    () => (logged.length ? logged.reduce((s, v) => s + v, 0) / logged.length : null),
+    [values.join(',')]
+  );
 
   if (logged.length === 0) {
     return <ChartEmpty height={height} message="Nothing logged in this range yet." />;
   }
 
-  const maxV = Math.max(...values, target * (1 + bandPct)) * 1.1;
+  // Stable y-domain anchored to the target, not to this window's peak.
+  //
+  // Scaling to the window maximum makes the axis change every time you step to
+  // another week, so an identical bar height means a different number of calories
+  // depending on which week is on screen. Since navigating between periods exists
+  // precisely to compare them, the scale has to hold still. It only expands when a
+  // day genuinely exceeds the anchored ceiling.
+  const maxV = Math.max(target * 1.6, Math.max(...values, 0) * 1.05);
   const toY = (v: number) => PLOT_TOP + (1 - v / maxV) * (height - PLOT_TOP);
   const slot = plotWidth / n;
   const barW = barWidth(slot);
   const bandTop = toY(target * (1 + bandPct));
   const bandBottom = toY(target * (1 - bandPct));
-
-  let avgPath = ''; let started = false;
-  avg.forEach((v, i) => {
-    if (v == null) return;
-    const x = Y_AXIS_WIDTH + i * slot + slot / 2;
-    avgPath += started ? ` L${x},${toY(v)}` : `M${x},${toY(v)}`;
-    started = true;
-  });
 
   const readVal = index != null ? values[index] : null;
 
@@ -314,8 +306,22 @@ export function IntakeChart({ dates, values, target, width, height, preperiodDat
             );
           })}
 
-          {avgPath !== '' && (
-            <Path d={avgPath} stroke={Series.carbs} strokeWidth={LINE_WIDTH} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          {/* Flat average for the visible window, with the figure on the line so
+              it can be read without scrubbing. */}
+          {windowAvg != null && (
+            <>
+              <Line
+                x1={Y_AXIS_WIDTH} y1={toY(windowAvg)} x2={width} y2={toY(windowAvg)}
+                stroke={Series.carbs} strokeWidth={LINE_WIDTH}
+              />
+              <SvgText
+                x={width} y={toY(windowAvg) - 5}
+                fontSize={10} fontFamily={Typography.geistMono}
+                fill={Series.carbs} textAnchor="end"
+              >
+                {`avg ${Math.round(windowAvg)}`}
+              </SvgText>
+            </>
           )}
 
           {index != null && (
@@ -328,7 +334,7 @@ export function IntakeChart({ dates, values, target, width, height, preperiodDat
       </View>
       <Legend items={[
         { color: Colors.forest, label: 'Daily' },
-        { color: Series.carbs, label: '7-day average' },
+        { color: Series.carbs, label: 'Average for this period' },
       ]} />
     </View>
   );
@@ -354,7 +360,10 @@ export function MacroCompositionChart({ dates, days, width, height }: {
     return <ChartEmpty height={height} message="No macros logged in this range yet." />;
   }
 
-  const maxV = Math.max(...totals) * 1.1 || 1;
+  // Same reasoning as IntakeChart: hold the scale still across navigated windows
+  // so bar heights stay comparable week to week. 400g of total macros is a
+  // sensible anchor; it expands only when a day exceeds it.
+  const maxV = Math.max(400, Math.max(...totals, 0) * 1.05);
   const toY = (v: number) => PLOT_TOP + (1 - v / maxV) * (height - PLOT_TOP);
   const slot = plotWidth / n;
   const barW = barWidth(slot);

@@ -60,14 +60,30 @@ function preperiodWindowDates(prediction: ReturnType<typeof predictPeriod>): Set
 
 type Range = '7 days' | '30 days' | '90 days';
 
-function dateRange(days: number): string[] {
+/**
+ * The `days` dates ending `periodsBack * days` days before today.
+ * periodsBack 0 is the current window, 1 is the previous one, and so on — so the
+ * step size follows the selected range: 7 days steps a week, 30 steps a month.
+ */
+function dateRange(days: number, periodsBack = 0): string[] {
   const result: string[] = [];
+  const end = new Date();
+  end.setDate(end.getDate() - periodsBack * days);
   for (let i = days - 1; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
+    const d = new Date(end);
+    d.setDate(end.getDate() - i);
     result.push(d.toISOString().split('T')[0]);
   }
   return result;
+}
+
+function formatDay(s: string): string {
+  return new Date(s + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+function formatSpan(dates: string[]): string {
+  const fmt = formatDay;
+  return dates.length ? `${fmt(dates[0])} – ${fmt(dates[dates.length - 1])}` : '';
 }
 
 export default function ProgressTab() {
@@ -81,6 +97,8 @@ export default function ProgressTab() {
   const [weekAnalysisLoading, setWeekAnalysisLoading] = useState(false);
   const [weekAnalysisError, setWeekAnalysisError] = useState('');
   const [plantRefresh, setPlantRefresh] = useState(0);
+  /** 0 = current window, 1 = one window back. Steps by the selected range length. */
+  const [periodsBack, setPeriodsBack] = useState(0);
 
   useFocusEffect(useCallback(() => {
     const p = loadProfile();
@@ -89,15 +107,21 @@ export default function ProgressTab() {
     setPlantRefresh((n) => n + 1);
   }, []));
 
-  // Rolling 7 days ending today, regardless of the chart range selector — the
-  // 30-plants target is a weekly behaviour and does not rescale to 30/90 days.
+  const days = range === '7 days' ? 7 : range === '30 days' ? 30 : 90;
+  const dates = useMemo(() => dateRange(days, periodsBack), [days, periodsBack]);
+  const isCurrentPeriod = periodsBack === 0;
+  // Everything on this tab is derived from `dates`, so one offset moves the whole
+  // screen together. Two cards describing different periods is how people
+  // misread their own data.
+  const windowEnd = dates[dates.length - 1];
+
+  // Always a 7-day tally — the 30-plants target is a weekly behaviour and does not
+  // rescale to 30 or 90 days. It ends at the window end so it follows navigation.
   const plantTally = useMemo(
-    () => tallyPlants(getAllMeals(), new Date().toISOString().split('T')[0], 7),
-    [plantRefresh]
+    () => tallyPlants(getAllMeals(), windowEnd, 7),
+    [plantRefresh, windowEnd]
   );
 
-  const days = range === '7 days' ? 7 : range === '30 days' ? 30 : 90;
-  const dates = dateRange(days);
 
   // Build daily intake data
   const intakeData = useMemo(() => {
@@ -197,7 +221,17 @@ export default function ProgressTab() {
   };
 
   // Weekly analysis — fixed last 7 calendar days, independent of the range toggle above
-  const weekDates = useMemo(() => dateRange(7), []);
+  // The 7 days ending at the window end, so the weekly card follows navigation.
+  const weekDates = useMemo(() => {
+    const out: string[] = [];
+    const end = new Date(windowEnd + 'T12:00:00');
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(end);
+      d.setDate(end.getDate() - i);
+      out.push(d.toISOString().split('T')[0]);
+    }
+    return out;
+  }, [windowEnd]);
   const weekStats = useMemo(() => {
     if (!profile) return null;
     const macroTargets = calcMacroGrams(profile.kcalTarget, profile.macroP, profile.macroC, profile.macroF);
@@ -267,7 +301,35 @@ export default function ProgressTab() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.screenTitle}>Progress</Text>
 
-        <Pills items={['7 days', '30 days', '90 days']} value={range} onChange={(v) => setRange(v as Range)} />
+        {/* Changing range resets to the current window — stepping back 3 weeks
+            then switching to 90 days would otherwise land somewhere arbitrary. */}
+        <Pills
+          items={['7 days', '30 days', '90 days']}
+          value={range}
+          onChange={(v) => { setRange(v as Range); setPeriodsBack(0); }}
+        />
+
+        {/* Period navigation. One offset moves the entire tab. */}
+        <View style={styles.periodNav}>
+          <TouchableOpacity onPress={() => setPeriodsBack((n) => n + 1)} hitSlop={10}>
+            <Icon name="chev-l" size={14} color={Colors.muted} sw={2} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={!isCurrentPeriod ? () => setPeriodsBack(0) : undefined}
+            disabled={isCurrentPeriod}
+            activeOpacity={0.6}
+          >
+            <Text style={styles.periodSpan}>{formatSpan(dates)}</Text>
+            {!isCurrentPeriod && <Text style={styles.periodBack}>← back to now</Text>}
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={!isCurrentPeriod ? () => setPeriodsBack((n) => Math.max(0, n - 1)) : undefined}
+            disabled={isCurrentPeriod}
+            hitSlop={10}
+          >
+            <Icon name="chev-r" size={14} color={isCurrentPeriod ? Colors.line : Colors.muted} sw={2} />
+          </TouchableOpacity>
+        </View>
 
         {/* Summary cards */}
         <View style={styles.summaryRow}>
@@ -440,7 +502,9 @@ export default function ProgressTab() {
         {/* Weekly analysis */}
         {weekStats && (
           <Card pad={18}>
-            <Text style={styles.chartTitle}>This week</Text>
+            <Text style={styles.chartTitle}>
+              {isCurrentPeriod ? 'This week' : `Week to ${formatDay(weekDates[weekDates.length - 1])}`}
+            </Text>
             <View style={styles.weekStatsGrid}>
               <WeekStat label="Kcal" value={`${weekStats.avgKcal}`} target={`/ ${weekStats.kcalTarget}`} />
               <WeekStat label="Protein" value={`${weekStats.avgProtein}g`} target={`/ ${weekStats.proteinTarget}g`} />
@@ -451,12 +515,12 @@ export default function ProgressTab() {
             </View>
             {weekStats.weightChangeKg !== null && (
               <Text style={[styles.projText, { marginTop: 8 }]}>
-                Weight {weekStats.weightChangeKg > 0 ? '+' : ''}{weekStats.weightChangeKg.toFixed(1)}{weightUnit} this week.
+                Weight {weekStats.weightChangeKg > 0 ? '+' : ''}{weekStats.weightChangeKg.toFixed(1)}{weightUnit} over these 7 days.
               </Text>
             )}
             {weekStats.overlapsPreperiod && (
               <Text style={[styles.projText, { color: Colors.muted, marginTop: 4 }]}>
-                This week overlaps your predicted pre-period window.
+                These 7 days overlap your predicted pre-period window.
               </Text>
             )}
 
@@ -482,7 +546,7 @@ export default function ProgressTab() {
             ) : (
               <View style={{ marginTop: 12 }}>
                 <Btn
-                  label={weekAnalysisLoading ? 'Thinking…' : 'Get this week\'s insights'}
+                  label={weekAnalysisLoading ? 'Thinking…' : 'Get insights for these 7 days'}
                   kind="ghost"
                   onPress={handleAnalyseWeek}
                   disabled={weekAnalysisLoading}
@@ -612,6 +676,16 @@ const styles = StyleSheet.create({
   chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   chartTitle: { fontFamily: Typography.geist, fontSize: 15, fontWeight: '500', color: Colors.forest, marginBottom: 12 },
   chartHint: { fontFamily: Typography.geist, fontSize: 11, color: Colors.muted, marginTop: -6, marginBottom: 10 },
+  periodNav: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 4, marginTop: 12, marginBottom: 4,
+  },
+  periodSpan: {
+    fontFamily: Typography.geistMono, fontSize: 12, color: Colors.forest, textAlign: 'center',
+  },
+  periodBack: {
+    fontFamily: Typography.geist, fontSize: 10, color: Colors.ember, textAlign: 'center', marginTop: 2,
+  },
   logBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   logBtnText: { fontFamily: Typography.geist, fontSize: 12, color: Colors.forest },
   avgRow: { flexDirection: 'row', justifyContent: 'space-around' },
