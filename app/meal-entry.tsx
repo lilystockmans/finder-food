@@ -30,6 +30,8 @@ import {
 import {
   getMealsForDate,
   insertMeal,
+  updateMealServing,
+  updateMealSlot,
   getCachedBarcode,
   cacheBarcode,
   type Ingredient,
@@ -42,7 +44,8 @@ type Method = 'photo' | 'barcode' | 'manual' | 'describe';
 
 
 export default function MealEntry() {
-  const { entrySlot, closeEntry, refreshMeals, viewDate } = useAppStore();
+  const { entrySlot, closeEntry, refreshMeals, viewDate, editingMeal, setEditingMeal } = useAppStore();
+  const isEditing = editingMeal !== null;
   const isToday = viewDate === new Date().toISOString().split('T')[0];
   const entryTimestamp = isToday ? Date.now() : new Date(viewDate + 'T12:00:00').getTime();
   const [slot, setSlot] = useState<Slot>(entrySlot);
@@ -79,6 +82,47 @@ export default function MealEntry() {
   const [describeError, setDescribeError] = useState('');
 
   useEffect(() => { setSlot(entrySlot); }, [entrySlot]);
+
+  // Editing an existing meal reuses this whole screen rather than duplicating the
+  // search, ingredient rows and AI correction inside the Home edit sheet. Jump
+  // straight past the method picker into the ingredient list.
+  useEffect(() => {
+    if (!editingMeal) return;
+    setIngredients(editingMeal.ingredients.map((i) => ({ ...i })));
+    setMealName(editingMeal.mealName ?? '');
+    setSlot(editingMeal.slot);
+    setMethod('manual');
+  }, [editingMeal?.id]);
+
+  // Editing state is global, so it must be cleared however the screen is left.
+  useEffect(() => () => setEditingMeal(null), []);
+
+  const [editCorrection, setEditCorrection] = useState('');
+  const [editCorrecting, setEditCorrecting] = useState(false);
+  const [editCorrectionError, setEditCorrectionError] = useState('');
+
+  /** Rebuild the ingredient list from a plain-language correction. */
+  const handleEditCorrection = async () => {
+    if (!editCorrection.trim()) return;
+    setEditCorrecting(true);
+    setEditCorrectionError('');
+    try {
+      const current = ingredients.map((i) => `${i.name} (${i.grams}g)`).join(', ');
+      const prompt = `Current ingredients: ${current}. Correction: ${editCorrection}. Return the full updated ingredient list.`;
+      const items = await analyseMealText(prompt, getGeminiKey());
+      if (items.length === 0) { setEditCorrectionError('No food detected in that correction'); return; }
+      setIngredients(items.map((it) => ({
+        name: it.name, grams: Math.round(it.grams), kcal: Math.round(it.kcal),
+        proteinG: it.protein_g, carbsG: it.carbs_g, fatG: it.fat_g, fiberG: it.fiber_g,
+      })));
+      setEditCorrection('');
+    } catch (err: any) {
+      if (err?.code === 429) startRateLimitCountdown();
+      else setEditCorrectionError(geminiErrorMessage(err));
+    } finally {
+      setEditCorrecting(false);
+    }
+  };
 
   // Load recent history
   useEffect(() => {
@@ -239,6 +283,23 @@ export default function MealEntry() {
     if (list.length === 0) return;
     const t = totalsOf(list);
     const finalName = nameOverride ?? mealName.trim();
+
+    // Editing updates the existing row in place, so the entry keeps its id and
+    // original timestamp. updateMealServing replaces the whole ingredient array,
+    // which is what makes adding, removing and renaming work.
+    if (editingMeal) {
+      updateMealServing(editingMeal.id, list, {
+        totalKcal: t.kcal, totalProteinG: t.protein, totalCarbsG: t.carbs,
+        totalFatG: t.fat, totalFiberG: t.fiber,
+      }, finalName);
+      if (slot !== editingMeal.slot) updateMealSlot(editingMeal.id, slot);
+      setEditingMeal(null);
+      refreshMeals();
+      closeEntry();
+      router.back();
+      return;
+    }
+
     insertMeal({
       id: Date.now().toString(),
       date: viewDate,
@@ -555,8 +616,37 @@ export default function MealEntry() {
                     ingredient={ing}
                     onGramsChange={(g) => updateGrams(i, g, ingredients, setIngredients)}
                     onRemove={() => removeIngredient(i)}
+                    onNameChange={(name) => setIngredients((prev) =>
+                      prev.map((x, j) => (j === i ? { ...x, name } : x)))}
                   />
                 ))}
+                <Text style={styles.renameHint}>Tap an ingredient name to correct it</Text>
+              </View>
+            )}
+
+            {/* Plain-language correction, same idea as the photo flow. Costs one
+                Gemini request, so it is a button rather than something automatic. */}
+            {isEditing && ingredients.length > 0 && (
+              <View style={styles.correctionBox}>
+                <Text style={styles.sectionLabel}>CORRECT WITH AI</Text>
+                <TextInput
+                  style={styles.correctionInput}
+                  placeholder="e.g. it was a cheeseburger, no sugar"
+                  placeholderTextColor={Colors.muted}
+                  value={editCorrection}
+                  onChangeText={setEditCorrection}
+                  multiline
+                />
+                {editCorrectionError !== '' && (
+                  <Text style={styles.correctionError}>{editCorrectionError}</Text>
+                )}
+                <Btn
+                  label={editCorrecting ? 'Rebuilding…' : 'Rebuild ingredient list'}
+                  kind="ghost"
+                  full
+                  disabled={editCorrecting || !editCorrection.trim() || rateLimitCountdown > 0}
+                  onPress={handleEditCorrection}
+                />
               </View>
             )}
 
@@ -571,7 +661,11 @@ export default function MealEntry() {
                 <TotalChip label="C" value={Math.round(manualTotals.carbs)} color={Colors.macroCarbs} />
                 <TotalChip label="F" value={Math.round(manualTotals.fat)} color={Colors.macroFat} />
               </View>
-              <Btn label="Add to log" kind="primary" full onPress={() => saveIngredients(ingredients)} />
+              <Btn
+                label={isEditing ? 'Save changes' : 'Add to log'}
+                kind="primary" full
+                onPress={() => saveIngredients(ingredients)}
+              />
             </View>
           )}
         </KeyboardAvoidingView>
@@ -701,14 +795,46 @@ function FoodRow({ item, onAdd }: { item: OFFSearchResult; onAdd: () => void }) 
   );
 }
 
-function IngredientRow({ ingredient, onGramsChange, onRemove }: {
-  ingredient: Ingredient; onGramsChange: (g: number) => void; onRemove: () => void;
+function IngredientRow({ ingredient, onGramsChange, onRemove, onNameChange }: {
+  ingredient: Ingredient;
+  onGramsChange: (g: number) => void;
+  onRemove: () => void;
+  /** When provided, the name becomes tappable and editable in place. */
+  onNameChange?: (name: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(ingredient.grams));
+  const [namingUp, setNamingUp] = useState(false);
+  const [nameDraft, setNameDraft] = useState(ingredient.name);
+
+  const commitName = () => {
+    const next = nameDraft.trim();
+    if (next && next !== ingredient.name) onNameChange?.(next);
+    else setNameDraft(ingredient.name);
+    setNamingUp(false);
+  };
+
   return (
     <View style={ir.row}>
-      <View style={ir.left}><Text style={ir.name} numberOfLines={1}>{ingredient.name}</Text></View>
+      <View style={ir.left}>
+        {namingUp ? (
+          <TextInput
+            style={ir.name}
+            value={nameDraft}
+            onChangeText={setNameDraft}
+            onBlur={commitName}
+            onSubmitEditing={commitName}
+            autoFocus
+            selectTextOnFocus
+          />
+        ) : onNameChange ? (
+          <TouchableOpacity onPress={() => { setNameDraft(ingredient.name); setNamingUp(true); }}>
+            <Text style={ir.name} numberOfLines={1}>{ingredient.name}</Text>
+          </TouchableOpacity>
+        ) : (
+          <Text style={ir.name} numberOfLines={1}>{ingredient.name}</Text>
+        )}
+      </View>
       {editing ? (
         <TextInput
           style={ir.grams}
@@ -897,6 +1023,23 @@ const styles = StyleSheet.create({
     letterSpacing: 1.4, textTransform: 'uppercase', paddingVertical: 4,
   },
   ingredientList: { gap: 4 },
+  renameHint: {
+    fontFamily: Typography.geist, fontSize: 11, color: Colors.muted,
+    paddingTop: 6, fontStyle: 'italic',
+  },
+  correctionBox: {
+    marginTop: 18, gap: 8, backgroundColor: Colors.sage + '80',
+    borderRadius: Radius.input, padding: 12,
+  },
+  correctionInput: {
+    fontFamily: Typography.geist, fontSize: 14, color: Colors.forest,
+    backgroundColor: Colors.white, borderRadius: Radius.input,
+    paddingHorizontal: 12, paddingVertical: 10, minHeight: 60,
+    textAlignVertical: 'top',
+  },
+  correctionError: {
+    fontFamily: Typography.geist, fontSize: 12, color: Colors.warn,
+  },
   warnBanner: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 6,
     backgroundColor: Colors.amber + '18', borderRadius: 10, padding: 10,

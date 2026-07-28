@@ -117,20 +117,39 @@ export function updateMealSlot(id: string, slot: MealEntry['slot']) {
   db.runSync('UPDATE meal_entries SET slot = ? WHERE id = ?', [slot, id]);
 }
 
+/**
+ * Replace a meal's ingredient array and totals, optionally its name.
+ *
+ * Replacing the whole array is what makes adding, removing and renaming
+ * individual ingredients work from the editor. `mealName` is included because the
+ * editor shows an editable name field — leaving it out meant edits to it were
+ * silently discarded.
+ */
 export function updateMealServing(id: string, ingredients: Ingredient[], totals: {
   totalKcal: number; totalProteinG: number; totalCarbsG: number; totalFatG: number; totalFiberG: number;
-}) {
+}, mealName?: string) {
   const db = getDb();
+  if (mealName === undefined) {
+    db.runSync(
+      `UPDATE meal_entries SET ingredientsJson = ?, totalKcal = ?, totalProteinG = ?,
+       totalCarbsG = ?, totalFatG = ?, totalFiberG = ? WHERE id = ?`,
+      [
+        JSON.stringify(ingredients),
+        totals.totalKcal, totals.totalProteinG, totals.totalCarbsG,
+        totals.totalFatG, totals.totalFiberG,
+        id,
+      ]
+    );
+    return;
+  }
   db.runSync(
-    `UPDATE meal_entries SET ingredientsJson = ?, totalKcal = ?, totalProteinG = ?,
+    `UPDATE meal_entries SET ingredientsJson = ?, mealName = ?, totalKcal = ?, totalProteinG = ?,
      totalCarbsG = ?, totalFatG = ?, totalFiberG = ? WHERE id = ?`,
     [
       JSON.stringify(ingredients),
-      totals.totalKcal,
-      totals.totalProteinG,
-      totals.totalCarbsG,
-      totals.totalFatG,
-      totals.totalFiberG,
+      mealName,
+      totals.totalKcal, totals.totalProteinG, totals.totalCarbsG,
+      totals.totalFatG, totals.totalFiberG,
       id,
     ]
   );

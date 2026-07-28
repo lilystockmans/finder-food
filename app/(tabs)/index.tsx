@@ -56,7 +56,7 @@ export default function Dashboard() {
   const [reLogMultiplier, setReLogMultiplier] = useState(1);
   const [reLogCustom, setReLogCustom] = useState('');
   const [plantTally, setPlantTally] = useState<PlantTally | null>(null);
-  const { openEntry, viewDate, setViewDate, mealsRefreshKey, refreshMeals } = useAppStore();
+  const { openEntry, viewDate, setViewDate, mealsRefreshKey, refreshMeals, setEditingMeal } = useAppStore();
 
   const today = new Date().toISOString().split('T')[0];
   const isToday = viewDate === today;
@@ -346,6 +346,12 @@ export default function Dashboard() {
             onClose={() => setEditMeal(null)}
             onDelete={() => { deleteMeal(editMeal.id); refreshMeals(); setEditMeal(null); }}
             onMove={(slot: Slot) => { updateMealSlot(editMeal.id, slot); refreshMeals(); setEditMeal(null); }}
+            onEditFull={() => {
+              setEditingMeal(editMeal);
+              openEntry(editMeal.slot);
+              setEditMeal(null);
+              router.push('/meal-entry');
+            }}
             onUpdate={(ingredients) => {
               const totals = ingredients.reduce(
                 (acc, i) => ({ totalKcal: acc.totalKcal + i.kcal, totalProteinG: acc.totalProteinG + i.proteinG, totalCarbsG: acc.totalCarbsG + i.carbsG, totalFatG: acc.totalFatG + i.fatG, totalFiberG: acc.totalFiberG + i.fiberG }),
@@ -459,12 +465,14 @@ function Chip({ label, color }: { label: string; color: string }) {
   );
 }
 
-function MealEditSheet({ meal, onClose, onDelete, onMove, onUpdate }: {
+function MealEditSheet({ meal, onClose, onDelete, onMove, onUpdate, onEditFull }: {
   meal: MealEntry;
   onClose: () => void;
   onDelete: () => void;
   onMove: (slot: Slot) => void;
   onUpdate: (ingredients: Ingredient[]) => void;
+  /** Open the full editor, where ingredients can be added, removed and renamed. */
+  onEditFull: () => void;
 }) {
   const [view, setView] = useState<'actions' | 'move' | 'edit'>('actions');
   const [draftIngredients, setDraftIngredients] = useState<Ingredient[]>([]);
@@ -531,9 +539,13 @@ function MealEditSheet({ meal, onClose, onDelete, onMove, onUpdate }: {
 
       {view === 'actions' && (
         <View style={sheet.actions}>
-          <TouchableOpacity style={sheet.action} onPress={startEdit}>
+          <TouchableOpacity style={sheet.action} onPress={onEditFull}>
             <Icon name="edit" size={18} color={Colors.forest} />
-            <Text style={sheet.actionText}>Edit serving size</Text>
+            <Text style={sheet.actionText}>Edit meal…</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={sheet.action} onPress={startEdit}>
+            <Icon name="edit" size={18} color={Colors.muted} />
+            <Text style={[sheet.actionText, { color: Colors.muted }]}>Quick serving change</Text>
           </TouchableOpacity>
           <TouchableOpacity style={sheet.action} onPress={() => setView('move')}>
             <Icon name="move" size={18} color={Colors.forest} />
